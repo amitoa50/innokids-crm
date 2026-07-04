@@ -4,9 +4,15 @@ import { Toaster } from "sonner"
 import { AuthProvider, useAuth } from "./hooks/useAuth"
 import Layout from "./components/Layout"
 import Login from "./pages/Login"
-import Chores from "./pages/Chores"
+import Dashboard from "./pages/Dashboard"
+import Leads from "./pages/Leads"
+import LeadDetails from "./pages/LeadDetails"
+import Tasks from "./pages/Tasks"
+import TrialLessons from "./pages/TrialLessons"
 import CalendarPage from "./pages/Calendar"
-import Reports from "./pages/Reports"
+import Students from "./pages/Students"
+import StudentDetails from "./pages/StudentDetails"
+import Groups from "./pages/Groups"
 import Team from "./pages/Team"
 import type { ReactNode } from "react"
 
@@ -28,13 +34,13 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
 function AdminRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated, isAdmin } = useAuth()
   if (!isAuthenticated) return <Navigate to="/login" replace />
-  if (!isAdmin) return <Navigate to="/" replace />
+  if (!isAdmin) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 
 function PublicRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth()
-  if (isAuthenticated) return <Navigate to="/" replace />
+  if (isAuthenticated) return <Navigate to="/dashboard" replace />
   return <>{children}</>
 }
 
@@ -59,9 +65,16 @@ export default function App() {
                 </ProtectedRoute>
               }
             >
-              <Route index element={<Chores />} />
+              <Route index element={<Navigate to="/dashboard" replace />} />
+              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="leads" element={<Leads />} />
+              <Route path="leads/:id" element={<LeadDetails />} />
+              <Route path="tasks" element={<Tasks />} />
+              <Route path="trial-lessons" element={<TrialLessons />} />
               <Route path="calendar" element={<CalendarPage />} />
-              <Route path="reports" element={<Reports />} />
+              <Route path="students" element={<Students />} />
+              <Route path="students/:id" element={<StudentDetails />} />
+              <Route path="groups" element={<Groups />} />
               <Route
                 path="team"
                 element={
@@ -71,7 +84,7 @@ export default function App() {
                 }
               />
             </Route>
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
           <Toaster position="top-left" richColors />
         </AuthProvider>

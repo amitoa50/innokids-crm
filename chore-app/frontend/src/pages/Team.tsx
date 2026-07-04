@@ -10,7 +10,7 @@ interface AddMemberForm {
   name: string
   email: string
   password: string
-  role: "ADMIN" | "MEMBER"
+  role: "ADMIN" | "STAFF"
 }
 
 export default function Team() {
@@ -20,13 +20,13 @@ export default function Team() {
   const { data: users = [], isLoading } = useQuery<User[]>({
     queryKey: ["users"],
     queryFn: async () => {
-      const { data } = await client.get("/users")
+      const { data } = await client.get("/user")
       return data
     },
   })
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) => client.delete(`/users/${id}`),
+    mutationFn: (id: number) => client.delete(`/user/${id}`),
     onSuccess: () => {
       toast.success("חבר הצוות הוסר")
       queryClient.invalidateQueries({ queryKey: ["users"] })
@@ -72,7 +72,7 @@ export default function Team() {
                         : "bg-slate-100 text-slate-600"
                     }`}
                   >
-                    {user.role === "ADMIN" ? "מנהל" : "חבר צוות"}
+                    {user.role === "ADMIN" ? "מנהל" : "צוות"}
                   </span>
                 </div>
               </div>
@@ -100,12 +100,12 @@ export default function Team() {
 function AddMemberModal({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient()
   const { register, handleSubmit, formState: { errors } } = useForm<AddMemberForm>({
-    defaultValues: { role: "MEMBER" },
+    defaultValues: { role: "STAFF" },
   })
 
   const mutation = useMutation({
     mutationFn: async (data: AddMemberForm) => {
-      return client.post("/users", data)
+      return client.post("/user", data)
     },
     onSuccess: () => {
       toast.success("חבר צוות נוסף")
@@ -164,7 +164,7 @@ function AddMemberModal({ onClose }: { onClose: () => void }) {
               {...register("role")}
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             >
-              <option value="MEMBER">חבר צוות</option>
+              <option value="STAFF">צוות</option>
               <option value="ADMIN">מנהל</option>
             </select>
           </div>

@@ -1,0 +1,127 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+/* Pipeline status badges */
+.badge--new {
+  background-color: color-mix(in srgb, var(--color-status-new) 15%, transparent);
+  color: var(--color-status-new);
+}
+
+.badge--contacted {
+  background-color: color-mix(in srgb, var(--color-status-contacted) 15%, transparent);
+  color: var(--color-status-contacted);
+}
+
+.badge--no-response {
+  background-color: color-mix(in srgb, var(--color-status-no-response) 15%, transparent);
+  color: var(--color-status-no-response);
+}
+
+.badge--trial-scheduled {
+  background-color: color-mix(in srgb, var(--color-status-trial-scheduled) 15%, transparent);
+  color: var(--color-status-trial-scheduled);
+}
+
+.badge--trial-completed {
+  background-color: color-mix(in srgb, var(--color-status-trial-completed) 15%, transparent);
+  color: var(--color-status-trial-completed);
+}
+
+.badge--follow-up {
+  background-color: color-mix(in srgb, var(--color-status-follow-up) 15%, transparent);
+  color: var(--color-status-follow-up);
+}
+
+.badge--converted {
+  background-color: color-mix(in srgb, var(--color-status-converted) 15%, transparent);
+  color: var(--color-status-converted);
+}
+
+.badge--closed {
+  background-color: color-mix(in srgb, var(--color-status-closed) 15%, transparent);
+  color: var(--color-status-closed);
+}
+
+/* Priority badges */
+.badge--priority-high {
+  background-color: color-mix(in srgb, var(--color-priority-high) 15%, transparent);
+  color: var(--color-priority-high);
+}
+
+.badge--priority-medium {
+  background-color: color-mix(in srgb, var(--color-priority-medium) 15%, transparent);
+  color: var(--color-priority-medium);
+}
+
+.badge--priority-low {
+  background-color: color-mix(in srgb, var(--color-priority-low) 15%, transparent);
+  color: var(--color-priority-low);
+}
+
+/* Source badges */
+.badge--source {
+  background-color: color-mix(in srgb, var(--color-brand-primary) 10%, transparent);
+  color: var(--color-brand-primary);
+}
+
+/* Trial lesson status badges */
+.badge--scheduled {
+  background-color: color-mix(in srgb, var(--color-status-trial-scheduled) 15%, transparent);
+  color: var(--color-status-trial-scheduled);
+}
+
+.badge--completed {
+  background-color: color-mix(in srgb, var(--color-status-converted) 15%, transparent);
+  color: var(--color-status-converted);
+}
+
+.badge--no-show {
+  background-color: color-mix(in srgb, var(--color-priority-high) 15%, transparent);
+  color: var(--color-priority-high);
+}
+
+.badge--cancelled {
+  background-color: color-mix(in srgb, var(--color-status-closed) 15%, transparent);
+  color: var(--color-status-closed);
+}
+
+/* Task status */
+.badge--pending {
+  background-color: color-mix(in srgb, var(--color-status-no-response) 15%, transparent);
+  color: var(--color-status-no-response);
+}
+
+/* Student/Group status */
+.badge--active {
+  background-color: color-mix(in srgb, var(--color-status-converted) 15%, transparent);
+  color: var(--color-status-converted);
+}
+
+.badge--inactive {
+  background-color: color-mix(in srgb, var(--color-status-closed) 15%, transparent);
+  color: var(--color-status-closed);
+}
+
+.badge--paused {
+  background-color: color-mix(in srgb, var(--color-status-no-response) 15%, transparent);
+  color: var(--color-status-no-response);
+}
+
+.badge--full {
+  background-color: color-mix(in srgb, var(--color-priority-high) 15%, transparent);
+  color: var(--color-priority-high);
+}
+
+.badge--archived {
+  background-color: color-mix(in srgb, var(--color-status-closed) 15%, transparent);
+  color: var(--color-status-closed);
+}

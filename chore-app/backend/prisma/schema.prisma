@@ -12,29 +12,148 @@ model User {
   email     String   @unique
   name      String
   password  String
-  role      String   @default("MEMBER")
+  role      String   @default("STAFF") // ADMIN, STAFF
+  status    String   @default("ACTIVE") // ACTIVE, INACTIVE
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  assignedChores Chore[]        @relation("AssignedChores")
-  createdChores  Chore[]        @relation("CreatedChores")
-  notifications  Notification[]
+  assignedLeads   Lead[]         @relation("AssignedLeads")
+  assignedTasks   Task[]         @relation("AssignedTasks")
+  teacherGroups   Group[]        @relation("TeacherGroups")
+  teacherTrials   TrialLesson[]  @relation("TeacherTrials")
+  notifications   Notification[]
+  activityLogs    ActivityLog[]  @relation("PerformedBy")
 }
 
-model Chore {
+model Lead {
+  id               Int       @id @default(autoincrement())
+  fullName         String
+  phone            String
+  phoneNormalized  String    @unique
+  email            String?
+  source           String    @default("MANUAL") // FACEBOOK, INSTAGRAM, WEBSITE, MANUAL, OTHER
+  campaignName     String?
+  status           String    @default("NEW") // NEW, CONTACTED, NO_RESPONSE, TRIAL_SCHEDULED, TRIAL_COMPLETED, FOLLOW_UP_AFTER_TRIAL, CONVERTED, CLOSED
+  assignedToId     Int?
+  nextFollowUpDate DateTime?
+  lastContactDate  DateTime?
+  learningFormat   String?   // ONLINE, IN_PERSON, UNKNOWN
+  branch           String?
+  closedReason     String?
+  notes            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  assignedTo    User?         @relation("AssignedLeads", fields: [assignedToId], references: [id])
+  students      Student[]
+  trialLessons  TrialLesson[]
+  tasks         Task[]        @relation("LeadTasks")
+  activityLogs  ActivityLog[] @relation("LeadActivities")
+  leadIntakes   LeadIntake[]
+}
+
+model Student {
+  id             Int       @id @default(autoincrement())
+  leadId         Int
+  childName      String
+  childBirthYear Int?
+  learningFormat String    // ONLINE, IN_PERSON
+  branch         String?
+  status         String    @default("ACTIVE") // ACTIVE, INACTIVE, PAUSED
+  groupId        Int?
+  enrolledAt     DateTime  @default(now())
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  lead          Lead          @relation(fields: [leadId], references: [id])
+  group         Group?        @relation(fields: [groupId], references: [id])
+  tasks         Task[]        @relation("StudentTasks")
+  activityLogs  ActivityLog[] @relation("StudentActivities")
+}
+
+model Group {
+  id             Int      @id @default(autoincrement())
+  name           String
+  type           String   // Scratch, Python, Robotics, etc.
+  ageRange       String?  // e.g. "8-10"
+  learningFormat String   // ONLINE, IN_PERSON
+  branch         String?
+  dayOfWeek      String?
+  time           String?
+  maxCapacity    Int?
+  teacherId      Int?
+  status         String   @default("ACTIVE") // ACTIVE, FULL, ARCHIVED
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  teacher      User?         @relation("TeacherGroups", fields: [teacherId], references: [id])
+  students     Student[]
+  trialLessons TrialLesson[]
+}
+
+model TrialLesson {
+  id          Int      @id @default(autoincrement())
+  leadId      Int
+  groupId     Int?
+  scheduledAt DateTime
+  status      String   @default("SCHEDULED") // SCHEDULED, COMPLETED, NO_SHOW, CANCELLED
+  outcome     String?
+  teacherId   Int?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lead    Lead   @relation(fields: [leadId], references: [id])
+  group   Group? @relation(fields: [groupId], references: [id])
+  teacher User?  @relation("TeacherTrials", fields: [teacherId], references: [id])
+}
+
+model Task {
   id           Int       @id @default(autoincrement())
   title        String
   description  String?
-  recurrence   String    @default("NONE")
-  dueDate      DateTime
-  status       String    @default("PENDING")
-  completedAt  DateTime?
-  notes        String?
-  createdAt    DateTime  @default(now())
-
-  assignedTo   User @relation("AssignedChores", fields: [assignedToId], references: [id])
+  type         String    @default("GENERAL") // FOLLOW_UP, CALL, GENERAL, TRIAL_REMINDER
+  priority     String    @default("MEDIUM") // LOW, MEDIUM, HIGH
+  status       String    @default("PENDING") // PENDING, COMPLETED
+  dueDate      DateTime?
   assignedToId Int
-  createdBy    User @relation("CreatedChores", fields: [createdById], references: [id])
-  createdById  Int
+  leadId       Int?
+  studentId    Int?
+  completedAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  assignedTo User     @relation("AssignedTasks", fields: [assignedToId], references: [id])
+  lead       Lead?    @relation("LeadTasks", fields: [leadId], references: [id])
+  student    Student? @relation("StudentTasks", fields: [studentId], references: [id])
+}
+
+model ActivityLog {
+  id            Int      @id @default(autoincrement())
+  type          String   // STATUS_CHANGE, NOTE_ADDED, CALL_LOGGED, TASK_CREATED, TRIAL_SCHEDULED, TRIAL_COMPLETED, LEAD_CONVERTED, LEAD_REOPENED, LEAD_RECEIVED_FROM_SOURCE
+  description   String
+  leadId        Int?
+  studentId     Int?
+  performedById Int?
+  metadata      String?  // JSON string
+  createdAt     DateTime @default(now())
+
+  lead        Lead?    @relation("LeadActivities", fields: [leadId], references: [id])
+  student     Student? @relation("StudentActivities", fields: [studentId], references: [id])
+  performedBy User?    @relation("PerformedBy", fields: [performedById], references: [id])
+}
+
+model LeadIntake {
+  id           Int      @id @default(autoincrement())
+  source       String   // facebook, instagram, website, etc.
+  rawPayload   String   // JSON string
+  status       String   @default("PENDING") // SUCCESS, DUPLICATE_MERGED, DUPLICATE_REOPENED, FAILED, PENDING
+  leadId       Int?
+  errorMessage String?
+  createdAt    DateTime @default(now())
+
+  lead Lead? @relation(fields: [leadId], references: [id])
 }
 
 model Notification {

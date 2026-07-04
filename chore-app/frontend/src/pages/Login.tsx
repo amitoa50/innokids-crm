@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useForm } from "react-hook-form"
 import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
-import { ClipboardList } from "lucide-react"
+import { GraduationCap } from "lucide-react"
 import { useAuth } from "../hooks/useAuth"
 import client from "../api/client"
 
@@ -32,7 +32,7 @@ export default function Login() {
       }
       await login(data.email, data.password)
       toast.success("ברוך הבא!")
-      navigate("/")
+      navigate("/dashboard")
     } catch {
       toast.error(isRegister ? "ההרשמה נכשלה" : "פרטי התחברות שגויים")
     } finally {
@@ -45,10 +45,10 @@ export default function Login() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="inline-flex items-center justify-center w-14 h-14 bg-indigo-600 rounded-xl mb-4">
-            <ClipboardList className="text-white" size={28} />
+            <GraduationCap className="text-white" size={28} />
           </div>
-          <h1 className="text-2xl font-bold text-slate-800">מנהל תורנויות</h1>
-          <p className="text-slate-500 text-sm mt-1">ניהול תורנויות משרדיות</p>
+          <h1 className="text-2xl font-bold text-slate-800">INNOKIDS</h1>
+          <p className="text-slate-500 text-sm mt-1">מערכת ניהול לידים ותלמידים</p>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -75,7 +75,7 @@ export default function Login() {
                 type="email"
                 {...register("email", { required: "אימייל הוא שדה חובה" })}
                 className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                placeholder="you@office.local"
+                placeholder="you@innokids.co.il"
               />
               {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
             </div>

@@ -18,7 +18,10 @@ declare global {
 export function authenticate(req: Request, res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    res.status(401).json({ error: { code: "UNAUTHORIZED", message: "No token provided" } })
+    res.status(401).json({
+      error: { code: "UNAUTHORIZED", message: "No token provided" },
+      requestId: req.requestId
+    })
     return
   }
 
@@ -28,13 +31,19 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
     req.user = decoded
     next()
   } catch {
-    res.status(401).json({ error: { code: "UNAUTHORIZED", message: "Invalid or expired token" } })
+    res.status(401).json({
+      error: { code: "UNAUTHORIZED", message: "Invalid or expired token" },
+      requestId: req.requestId
+    })
   }
 }
 
 export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
   if (!req.user || req.user.role !== "ADMIN") {
-    res.status(403).json({ error: { code: "FORBIDDEN", message: "Admin access required" } })
+    res.status(403).json({
+      error: { code: "FORBIDDEN", message: "Admin access required" },
+      requestId: req.requestId
+    })
     return
   }
   next()

@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+/* Setup */
+@import "./setup/variables.css";
+
+/* Basics */
+@import "./basics/typography.css";
+
+/* Components */
+@import "./cmps/badge.css";
+@import "./cmps/timeline.css";
