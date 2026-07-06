@@ -3,7 +3,16 @@ import { authenticate } from "../middleware/auth"
 import prisma from "../lib/prisma"
 import * as leadService from "../services/lead.service"
 import * as communicationService from "../services/communication.service"
+import { sendWhatsApp } from "../services/whatsapp/send.service"
 const router = Router()
+
+const sendErrorStatus: Record<string, number> = {
+  LEAD_NOT_FOUND: 404,
+  NO_CONSENT: 409,
+  WINDOW_CLOSED_NO_TEMPLATE: 422,
+  TEMPLATE_NOT_APPROVED: 422,
+  EMPTY_BODY: 400
+}
 
 router.use(authenticate)
 
@@ -327,6 +336,22 @@ router.post("/:id/message", async (req: Request, res: Response) => {
       error: { code: "NOT_FOUND", message: "Lead not found" },
       requestId: req.requestId
     })
+    return
+  }
+
+  // WhatsApp outbound goes through the provider (consent + window enforced);
+  // every other channel/direction is logged only.
+  if (channel === "WHATSAPP" && direction === "OUTBOUND") {
+    const result = await sendWhatsApp(id, { body, templateName: req.body.templateName, variables: req.body.variables }, req.user!.userId)
+    if ("error" in result && result.error) {
+      const code = result.error
+      res.status(sendErrorStatus[code] || 400).json({
+        error: { code, message: `WhatsApp send rejected: ${code}` },
+        requestId: req.requestId
+      })
+      return
+    }
+    res.status(201).json(result.message)
     return
   }
 

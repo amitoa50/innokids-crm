@@ -42,6 +42,7 @@ export interface Lead {
   whatsappConsentAt: string | null
   marketingConsent: boolean
   preferredChannel: string | null
+  whatsappWindowExpiresAt: string | null
   createdAt: string
   updatedAt: string
   students?: Student[]
@@ -187,6 +188,44 @@ export interface ExternalRef {
   externalId: string
   metadata: string | null
   createdAt: string
+}
+
+export interface MessageTemplate {
+  id: number
+  name: string
+  language: string
+  category: string
+  body: string
+  variables: string | null
+  status: "DRAFT" | "PENDING" | "APPROVED" | "REJECTED"
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AutomationRule {
+  id: number
+  name: string
+  triggerEvent: string
+  templateName: string
+  channel: string
+  offsetMinutes: number
+  active: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ScheduledMessage {
+  id: number
+  leadId: number
+  channel: string
+  templateName: string
+  variables: string | null
+  dueAt: string
+  status: "PENDING" | "SENT" | "CANCELLED" | "FAILED"
+  failureReason: string | null
+  messageId: number | null
+  createdAt: string
+  updatedAt: string
 }
 
 export interface Notification {

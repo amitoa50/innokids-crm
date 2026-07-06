@@ -48,16 +48,18 @@ model Lead {
   whatsappConsentAt  DateTime?
   marketingConsent   Boolean   @default(false)
   preferredChannel   String?   // WHATSAPP, PHONE, EMAIL
+  whatsappWindowExpiresAt DateTime? // end of the 24h WhatsApp service window
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  assignedTo    User?          @relation("AssignedLeads", fields: [assignedToId], references: [id])
+  assignedTo    User?              @relation("AssignedLeads", fields: [assignedToId], references: [id])
   students      Student[]
   trialLessons  TrialLesson[]
-  tasks         Task[]         @relation("LeadTasks")
-  activityLogs  ActivityLog[]  @relation("LeadActivities")
+  tasks         Task[]             @relation("LeadTasks")
+  activityLogs  ActivityLog[]      @relation("LeadActivities")
   leadIntakes   LeadIntake[]
-  conversations Conversation[] @relation("LeadConversations")
+  conversations Conversation[]     @relation("LeadConversations")
+  scheduledMessages ScheduledMessage[]
 }
 
 model Student {
@@ -214,6 +216,7 @@ model Message {
 
   conversation Conversation @relation(fields: [conversationId], references: [id])
   sentBy       User?        @relation("SentMessages", fields: [sentById], references: [id])
+  scheduledMessage ScheduledMessage?
 
   @@index([conversationId])
 }
@@ -229,4 +232,47 @@ model ExternalRef {
 
   @@unique([system, externalId])
   @@index([entityType, entityId])
+}
+
+model MessageTemplate {
+  id         Int      @id @default(autoincrement())
+  name       String   @unique
+  language   String   @default("he")
+  category   String   @default("UTILITY") // UTILITY, MARKETING, AUTHENTICATION
+  body       String
+  variables  String?  // JSON array of variable names
+  status     String   @default("DRAFT") // DRAFT, PENDING, APPROVED, REJECTED
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model AutomationRule {
+  id           Int      @id @default(autoincrement())
+  name         String
+  triggerEvent String   // TRIAL_REMINDER, POST_TRIAL_FOLLOW_UP, NO_RESPONSE_NUDGE
+  templateName String
+  channel      String   @default("WHATSAPP")
+  offsetMinutes Int     @default(0) // relative to the trigger event time (negative = before)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model ScheduledMessage {
+  id            Int       @id @default(autoincrement())
+  leadId        Int
+  channel       String    @default("WHATSAPP")
+  templateName  String
+  variables     String?   // JSON string
+  dueAt         DateTime
+  status        String    @default("PENDING") // PENDING, SENT, CANCELLED, FAILED
+  failureReason String?
+  messageId     Int?      @unique
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  lead    Lead     @relation(fields: [leadId], references: [id])
+  message Message? @relation(fields: [messageId], references: [id])
+
+  @@index([status, dueAt])
 }

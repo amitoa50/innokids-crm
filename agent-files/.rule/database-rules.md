@@ -9,8 +9,14 @@
 - Prisma generates the client from the schema file (`npx prisma generate`).
 
 ## Core Models
-- User, Lead, Student, Group, TrialLesson, Task, ActivityLog, LeadIntake, Notification, Conversation, Message, ExternalRef
+- User, Lead, Student, Group, TrialLesson, Task, ActivityLog, LeadIntake, Notification, Conversation, Message, ExternalRef, MessageTemplate, AutomationRule, ScheduledMessage
 - See the Prisma schema for full field definitions.
+
+## WhatsApp / Automation (Phase 2)
+- `MessageTemplate` — approved WhatsApp templates; `name` unique; `status` gates sends (only APPROVED may be sent).
+- `AutomationRule` — trigger→template mapping with `offsetMinutes` timing; `active` flag halts a rule without a deploy.
+- `ScheduledMessage` — automation outbox; `@@index([status, dueAt])` for cron dispatch; `messageId` unique links the sent `Message`.
+- Provider secrets (`WHATSAPP_*`) live in `.env` only, never in the database or committed.
 
 ## External Reference and Idempotency
 - `ExternalRef` maps an internal entity to its identifier in an external system (Meta, Instagram, website, WhatsApp, Google Calendar).

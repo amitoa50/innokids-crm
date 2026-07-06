@@ -16,6 +16,14 @@ const statuses = [
   "TRIAL_COMPLETED", "FOLLOW_UP_AFTER_TRIAL", "CONVERTED", "CLOSED"
 ]
 
+function waTicks(status: string): string {
+  if (status === "READ") return "✓✓ נקרא"
+  if (status === "DELIVERED") return "✓✓ נמסר"
+  if (status === "SENT") return "✓ נשלח"
+  if (status === "FAILED") return "✗ נכשל"
+  return status
+}
+
 export default function LeadDetails() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -66,9 +74,14 @@ export default function LeadDetails() {
       queryClient.invalidateQueries({ queryKey: ["conversation", id] })
       queryClient.invalidateQueries({ queryKey: ["lead", id] })
       setMsgBody("")
-      toast.success("הודעה נרשמה")
+      toast.success("הודעה נשלחה")
     },
-    onError: () => toast.error("רישום ההודעה נכשל")
+    onError: (err: unknown) => {
+      const code = (err as { response?: { data?: { error?: { code?: string } } } }).response?.data?.error?.code
+      if (code === "NO_CONSENT") toast.error("אין אישור לשליחת וואטסאפ לליד זה")
+      else if (code === "WINDOW_CLOSED_NO_TEMPLATE") toast.error("חלון 24 השעות סגור — נדרשת תבנית מאושרת")
+      else toast.error("שליחת ההודעה נכשלה")
+    }
   })
 
   const assignMutation = useMutation({
@@ -212,6 +225,21 @@ export default function LeadDetails() {
           {/* Communication */}
           <div className="bg-white rounded-xl border border-slate-200 p-5">
             <h3 className="font-semibold text-slate-800 mb-3">תקשורת</h3>
+            {msgChannel === "WHATSAPP" && (
+              <div className={`mb-3 text-xs rounded-lg px-3 py-2 ${
+                !lead.whatsappConsent
+                  ? "bg-red-50 text-red-700"
+                  : lead.whatsappWindowExpiresAt && new Date(lead.whatsappWindowExpiresAt) > new Date()
+                    ? "bg-green-50 text-green-700"
+                    : "bg-amber-50 text-amber-700"
+              }`}>
+                {!lead.whatsappConsent
+                  ? "אין אישור וואטסאפ — לא ניתן לשלוח"
+                  : lead.whatsappWindowExpiresAt && new Date(lead.whatsappWindowExpiresAt) > new Date()
+                    ? `חלון 24 השעות פתוח (עד ${new Date(lead.whatsappWindowExpiresAt).toLocaleString("he-IL")})`
+                    : "חלון 24 השעות סגור — הודעה חופשית תיחסם, נדרשת תבנית מאושרת"}
+              </div>
+            )}
             <div className="flex flex-wrap gap-2 mb-3">
               <select
                 value={msgChannel}
@@ -260,6 +288,7 @@ export default function LeadDetails() {
                         <span className="meta">
                           {new Date(m.createdAt).toLocaleString("he-IL")}
                           {m.sentBy ? ` · ${m.sentBy.name}` : ""}
+                          {m.direction === "OUTBOUND" && m.channel === "WHATSAPP" ? ` · ${waTicks(m.status)}` : ""}
                         </span>
                       </div>
                     ))}

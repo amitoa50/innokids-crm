@@ -28,9 +28,15 @@ INNOKIDS CRM is an internal operating system for a coding school for kids and te
 
 ### Database (SQLite via Prisma)
 - Single-file database (`dev.db`)
-- Models: User, Lead, Student, Group, TrialLesson, Task, ActivityLog, LeadIntake, Notification, Conversation, Message, ExternalRef
+- Models: User, Lead, Student, Group, TrialLesson, Task, ActivityLog, LeadIntake, Notification, Conversation, Message, ExternalRef, MessageTemplate, AutomationRule, ScheduledMessage
 - String fields for enums (SQLite limitation)
 - `ExternalRef` idempotency key: `@@unique([system, externalId])`; polymorphic reference via `entityType` + `entityId`
+
+### WhatsApp adapter (Phase 2, `services/whatsapp/`)
+- Provider-agnostic `WhatsAppProvider` interface with concrete adapters: `cloudApi` (Meta Cloud API, default), `mock` (local dev, no external calls); `twilio`/`360dialog` reserved. Selected by `WHATSAPP_PROVIDER` env.
+- Inbound webhook (`/api/whatsapp/webhook`): GET verify challenge, POST signature-validated (`X-Hub-Signature-256` over the raw body). Inbound messages auto-link to a lead by normalized phone (create if unknown), open the 24h service window, and log to the conversation. Status callbacks update `Message.status`. Idempotency via `ExternalRef` on the provider message id.
+- Outbound send (`send.service`): consent-gated; session message inside the window, approved template outside it; provider message id stored via `ExternalRef`.
+- Automation (Phase 2b): `AutomationRule` → `ScheduledMessage` outbox dispatched by the daily cron; `MessageTemplate` registry mirrors provider-approved templates.
 
 ## Data Flow
 
@@ -79,6 +85,7 @@ Channel notes:
 ## Auth and Role Boundaries
 - **Public** — `/api/auth/login`, `/api/auth/register`
 - **API key** — `/api/lead-intake/webhook/:source`
+- **Provider-verified** — `/api/whatsapp/webhook` (verify token + `X-Hub-Signature-256`, not JWT)
 - **Authenticated (All roles)** — all other endpoints
 - **Admin only** — user management (`/api/user`), staff performance reports, group creation
 - Roles: ADMIN (full access), STAFF (operational, no settings)
@@ -100,6 +107,7 @@ Channel notes:
 ## Change Log
 - 2026-07-04: Initial architecture for INNOKIDS CRM Core (Phase 1)
 - 2026-07-06: CRM data-model hardening (plan 003) — added communication spine (Conversation, Message), ExternalRef map, consent fields, pipeline transition engine, auto-stage logic, group capacity enforcement, calendar-readiness fields; added Integration Architecture section
+- 2026-07-06: WhatsApp Phase 2a (plan 004) — provider-agnostic WhatsApp adapter (Cloud API + mock), inbound webhook with auto-link + service window, consent-gated outbound send, status callbacks, ExternalRef idempotency; added MessageTemplate/AutomationRule/ScheduledMessage models (automation engine wiring is Phase 2b)
 
 ## Update Triggers
 - Update this file when API routes, auth boundaries, or major component ownership changes.

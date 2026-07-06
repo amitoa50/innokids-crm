@@ -20,11 +20,12 @@ import taskRoutes from "./routes/task"
 import reportRoutes from "./routes/report"
 import userRoutes from "./routes/user"
 import notificationRoutes from "./routes/notification"
+import whatsappRoutes from "./routes/whatsapp"
 
 const app = express()
 
 app.use(cors({ origin: "http://localhost:5173" }))
-app.use(express.json())
+app.use(express.json({ verify: (req, _res, buf) => { (req as express.Request).rawBody = buf } }))
 app.use(requestIdMiddleware)
 
 app.use("/api/auth", authRoutes)
@@ -37,6 +38,7 @@ app.use("/api/task", taskRoutes)
 app.use("/api/report", reportRoutes)
 app.use("/api/user", userRoutes)
 app.use("/api/notification", notificationRoutes)
+app.use("/api/whatsapp", whatsappRoutes)
 
 // Daily cron job at midnight: check overdue follow-ups and notify staff
 cron.schedule("0 0 * * *", async () => {

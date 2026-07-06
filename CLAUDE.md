@@ -133,6 +133,7 @@ chore-app/
 - **Conversation** — channel-scoped thread (WhatsApp/email/SMS/phone/manual) belonging to a lead or student.
 - **Message** — single inbound/outbound communication inside a conversation, with delivery status.
 - **ExternalRef** — maps internal entities to external-system IDs (Meta/Instagram/website/WhatsApp/Calendar). Idempotency key `@@unique([system, externalId])`.
+- **MessageTemplate / AutomationRule / ScheduledMessage** — WhatsApp template registry, automation trigger→template rules, and the cron-dispatched automation outbox (Phase 2).
 
 ---
 
@@ -152,6 +153,7 @@ All routes use singular entity names. Error responses follow shape: `{ error: { 
 | `/api/report` | Dashboard stats, pipeline, source, staff performance |
 | `/api/user` | Team management (admin only) |
 | `/api/notification` | In-app notifications |
+| `/api/whatsapp` | WhatsApp webhook (verify + inbound + status callbacks); provider-verified, not JWT |
 
 ---
 
@@ -201,3 +203,4 @@ npm run preview           # preview production build
 - **Communication spine:** channel-agnostic `Conversation` + `Message`. WhatsApp and other channels attach as adapters (Phase 2). Consent (`whatsappConsent`, `marketingConsent`, `preferredChannel`) gates outbound messaging.
 - **External-ID idempotency:** lead intake with an `externalId` (e.g. Meta `leadgen_id`) is deduped via `ExternalRef` before phone dedup; replays return the same lead.
 - **Group capacity** enforced on assignment/conversion — full group returns `409 GROUP_FULL` and flips `status` to `FULL`.
+- **WhatsApp (Phase 2):** provider-agnostic adapter in `src/services/whatsapp/` (`WHATSAPP_PROVIDER=cloud|mock`). Inbound opens a 24h `service window` on the lead; outbound is consent-gated (`NO_CONSENT` 409), session-only inside the window and template-only outside it (`WINDOW_CLOSED_NO_TEMPLATE` 422). Provider message ids deduped via `ExternalRef`. Secrets in `.env` only (`WHATSAPP_*`), never committed.

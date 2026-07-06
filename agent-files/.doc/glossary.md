@@ -49,6 +49,21 @@
 - `preferred-channel`
 	- Canonical meaning: the channel a lead prefers for contact (WHATSAPP, PHONE, EMAIL).
 	- Use: field-level on `lead` (`preferredChannel`).
+- `whatsapp-provider`
+	- Canonical meaning: a pluggable WhatsApp adapter (Meta Cloud API, mock, future BSPs) behind the `WhatsAppProvider` interface.
+	- Use: code only (`services/whatsapp/`); selected via `WHATSAPP_PROVIDER` env.
+- `service-window`
+	- Canonical meaning: the 24h window opened by an inbound WhatsApp message during which free-form (session) messages are allowed; outside it, only approved templates.
+	- Use: tracked on `lead.whatsappWindowExpiresAt`.
+- `message-template`
+	- Canonical meaning: a pre-approved WhatsApp template used for out-of-window and automated sends.
+	- Use: singular route/service (`messageTemplate`).
+- `automation-rule`
+	- Canonical meaning: a trigger→template mapping (with timing offset) that enqueues automated messages on pipeline events.
+	- Use: singular in code (`automationRule`).
+- `scheduled-message`
+	- Canonical meaning: an automation outbox row dispatched by cron when due; the queue between an automation rule and an actual send.
+	- Use: singular in code (`scheduledMessage`).
 
 ## Naming Alignment
 - Keep this glossary aligned with naming decisions in `../.rule/naming-rules.md`.
