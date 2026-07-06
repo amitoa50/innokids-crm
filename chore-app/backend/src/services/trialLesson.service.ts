@@ -1,6 +1,12 @@
 import prisma from "../lib/prisma"
+import { setLeadStatus } from "./lead.service"
+import { FOLLOW_UP_AFTER_TRIAL_DELAY_DAYS } from "../lib/pipeline"
 import { logActivity } from "./activityLog.service"
 import { createNotification } from "./notification.service"
+
+function addDays(base: Date, days: number): Date {
+  return new Date(base.getTime() + days * 24 * 60 * 60 * 1000)
+}
 
 interface CreateTrialData {
   leadId: number
@@ -51,11 +57,8 @@ export async function createTrialLesson(data: CreateTrialData, performedById: nu
     }
   })
 
-  // Auto-update lead status to TRIAL_SCHEDULED
-  await prisma.lead.update({
-    where: { id: data.leadId },
-    data: { status: "TRIAL_SCHEDULED" }
-  })
+  // Auto-update lead status to TRIAL_SCHEDULED (validated system transition)
+  await setLeadStatus(data.leadId, "TRIAL_SCHEDULED", performedById, { system: true })
 
   await logActivity({
     type: "TRIAL_SCHEDULED",
@@ -102,15 +105,30 @@ export async function updateTrialStatus(
   const trial = await prisma.trialLesson.update({
     where: { id },
     data: { status, outcome },
-    include: { lead: { select: { id: true, fullName: true } } }
+    include: { lead: { select: { id: true, fullName: true, assignedToId: true } } }
   })
 
   // Auto-update lead status based on trial outcome
   if (status === "COMPLETED") {
+    await setLeadStatus(trial.lead.id, "TRIAL_COMPLETED", performedById, { system: true })
+
+    const followUpDate = addDays(new Date(), FOLLOW_UP_AFTER_TRIAL_DELAY_DAYS)
     await prisma.lead.update({
       where: { id: trial.lead.id },
-      data: { status: "TRIAL_COMPLETED" }
+      data: { nextFollowUpDate: followUpDate }
     })
+
+    if (trial.lead.assignedToId) {
+      await prisma.task.create({
+        data: {
+          title: `מעקב אחרי שיעור ניסיון: ${trial.lead.fullName}`,
+          type: "FOLLOW_UP",
+          assignedToId: trial.lead.assignedToId,
+          leadId: trial.lead.id,
+          dueDate: followUpDate
+        }
+      })
+    }
 
     await logActivity({
       type: "TRIAL_COMPLETED",
@@ -120,6 +138,27 @@ export async function updateTrialStatus(
       metadata: { outcome }
     })
   } else if (status === "NO_SHOW") {
+    // Auto-stage: lead did not show -> NO_RESPONSE + next-day follow-up
+    await setLeadStatus(trial.lead.id, "NO_RESPONSE", performedById, { system: true })
+
+    const followUpDate = addDays(new Date(), 1)
+    await prisma.lead.update({
+      where: { id: trial.lead.id },
+      data: { nextFollowUpDate: followUpDate }
+    })
+
+    if (trial.lead.assignedToId) {
+      await prisma.task.create({
+        data: {
+          title: `לא הגיע לשיעור ניסיון - ליצור קשר: ${trial.lead.fullName}`,
+          type: "FOLLOW_UP",
+          assignedToId: trial.lead.assignedToId,
+          leadId: trial.lead.id,
+          dueDate: followUpDate
+        }
+      })
+    }
+
     await logActivity({
       type: "STATUS_CHANGE",
       description: `שיעור ניסיון: לא הגיע - ${trial.lead.fullName}`,

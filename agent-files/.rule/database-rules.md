@@ -9,8 +9,17 @@
 - Prisma generates the client from the schema file (`npx prisma generate`).
 
 ## Core Models
-- User, Lead, Student, Group, TrialLesson, Task, ActivityLog, LeadIntake, Notification
+- User, Lead, Student, Group, TrialLesson, Task, ActivityLog, LeadIntake, Notification, Conversation, Message, ExternalRef
 - See the Prisma schema for full field definitions.
+
+## External Reference and Idempotency
+- `ExternalRef` maps an internal entity to its identifier in an external system (Meta, Instagram, website, WhatsApp, Google Calendar).
+- Idempotency key: `@@unique([system, externalId])` — the same external event never creates a duplicate internal record.
+- Reference is polymorphic: `entityType` (LEAD, STUDENT, TRIAL_LESSON, GROUP, MESSAGE, CONVERSATION) + `entityId`, indexed via `@@index([entityType, entityId])`. No DB-level foreign key — written only by services, never client-supplied.
+
+## Communication Spine
+- `Conversation` is channel-scoped and belongs to a lead (or student); `Message` holds direction (INBOUND/OUTBOUND), channel, body, and delivery status.
+- Provider message IDs are stored via `ExternalRef` (entityType MESSAGE), not as columns.
 
 ## Enum Handling
 - SQLite does not support native enums.

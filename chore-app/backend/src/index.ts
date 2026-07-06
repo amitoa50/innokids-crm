@@ -7,6 +7,8 @@ import cron from "node-cron"
 import bcrypt from "bcryptjs"
 import prisma from "./lib/prisma"
 import { requestIdMiddleware } from "./lib/requestId"
+import { setLeadStatus } from "./services/lead.service"
+import { NO_RESPONSE_AGING_DAYS } from "./lib/pipeline"
 
 import authRoutes from "./routes/auth"
 import leadRoutes from "./routes/lead"
@@ -63,6 +65,29 @@ cron.schedule("0 0 * * *", async () => {
 
     if (overdueLeads.length > 0) {
       console.log(`Notified about ${overdueLeads.length} overdue follow-up(s)`)
+    }
+
+    // Auto-stage: advance completed-trial leads with a passed follow-up date to FOLLOW_UP_AFTER_TRIAL
+    const postTrialLeads = await prisma.lead.findMany({
+      where: {
+        status: "TRIAL_COMPLETED",
+        nextFollowUpDate: { lt: now }
+      }
+    })
+    for (const lead of postTrialLeads) {
+      await setLeadStatus(lead.id, "FOLLOW_UP_AFTER_TRIAL", undefined, { system: true })
+    }
+
+    // Auto-stage: age stale NEW/CONTACTED leads (follow-up passed by N days) to NO_RESPONSE
+    const agingThreshold = new Date(now.getTime() - NO_RESPONSE_AGING_DAYS * 24 * 60 * 60 * 1000)
+    const staleLeads = await prisma.lead.findMany({
+      where: {
+        status: { in: ["NEW", "CONTACTED"] },
+        nextFollowUpDate: { lt: agingThreshold }
+      }
+    })
+    for (const lead of staleLeads) {
+      await setLeadStatus(lead.id, "NO_RESPONSE", undefined, { system: true })
     }
   } catch (err) {
     console.error("Cron job error:", err)

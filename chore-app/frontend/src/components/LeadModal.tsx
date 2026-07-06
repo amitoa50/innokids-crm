@@ -20,6 +20,10 @@ interface FormData {
   branch: string
   assignedToId: string
   notes: string
+  childName: string
+  childBirthYear: string
+  whatsappConsent: boolean
+  preferredChannel: string
 }
 
 export default function LeadModal({ isOpen, onClose, lead }: Props) {
@@ -35,11 +39,19 @@ export default function LeadModal({ isOpen, onClose, lead }: Props) {
       learningFormat: lead.learningFormat || "",
       branch: lead.branch || "",
       assignedToId: lead.assignedToId?.toString() || "",
-      notes: lead.notes || ""
+      notes: lead.notes || "",
+      childName: lead.childName || "",
+      childBirthYear: lead.childBirthYear?.toString() || "",
+      whatsappConsent: lead.whatsappConsent || false,
+      preferredChannel: lead.preferredChannel || ""
     } : {
       source: "MANUAL",
       learningFormat: "",
-      assignedToId: ""
+      assignedToId: "",
+      childName: "",
+      childBirthYear: "",
+      whatsappConsent: false,
+      preferredChannel: ""
     }
   })
 
@@ -60,7 +72,11 @@ export default function LeadModal({ isOpen, onClose, lead }: Props) {
         email: data.email || undefined,
         learningFormat: data.learningFormat || undefined,
         branch: data.branch || undefined,
-        notes: data.notes || undefined
+        notes: data.notes || undefined,
+        childName: data.childName || undefined,
+        childBirthYear: data.childBirthYear ? Number(data.childBirthYear) : undefined,
+        whatsappConsent: data.whatsappConsent,
+        preferredChannel: data.preferredChannel || undefined
       }
 
       if (isEdit) {
@@ -169,6 +185,48 @@ export default function LeadModal({ isOpen, onClose, lead }: Props) {
                 ))}
               </select>
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">שם הילד/ה</label>
+              <input
+                {...register("childName")}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">שנת לידה</label>
+              <input
+                {...register("childBirthYear")}
+                type="number"
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                dir="ltr"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">ערוץ מועדף</label>
+              <select
+                {...register("preferredChannel")}
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              >
+                <option value="">לא נבחר</option>
+                <option value="WHATSAPP">וואטסאפ</option>
+                <option value="PHONE">טלפון</option>
+                <option value="EMAIL">אימייל</option>
+              </select>
+            </div>
+            <label className="flex items-center gap-2 mt-6 text-sm font-medium text-slate-700">
+              <input
+                {...register("whatsappConsent")}
+                type="checkbox"
+                className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              אישור יצירת קשר בוואטסאפ
+            </label>
           </div>
 
           <div>

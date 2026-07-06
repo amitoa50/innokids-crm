@@ -51,8 +51,15 @@ export default function StudentModal({ isOpen, onClose, leadId, leadName }: Prop
       reset()
       onClose()
     },
-    onError: () => {
-      toast.error("שגיאה בהמרת הליד")
+    onError: (err: unknown) => {
+      const e = err as { response?: { data?: { error?: { code?: string } } } }
+      if (e.response?.data?.error?.code === "GROUP_FULL") {
+        toast.error("הקבוצה מלאה — לא ניתן לשייך")
+      } else if (e.response?.data?.error?.code === "ALREADY_CONVERTED") {
+        toast.error("הליד כבר הומר לתלמיד")
+      } else {
+        toast.error("שגיאה בהמרת הליד")
+      }
     }
   })
 

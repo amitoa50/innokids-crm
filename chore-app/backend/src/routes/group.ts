@@ -63,8 +63,24 @@ router.post("/:id/student", async (req: Request, res: Response) => {
     return
   }
 
-  const student = await groupService.addStudentToGroup(groupId, studentId)
-  res.json(student)
+  const result = await groupService.addStudentToGroup(groupId, studentId)
+
+  if ("error" in result) {
+    if (result.error === "GROUP_NOT_FOUND") {
+      res.status(404).json({
+        error: { code: "NOT_FOUND", message: "Group not found" },
+        requestId: req.requestId
+      })
+      return
+    }
+    res.status(409).json({
+      error: { code: "GROUP_FULL", message: "Group is at full capacity" },
+      requestId: req.requestId
+    })
+    return
+  }
+
+  res.json(result.student)
 })
 
 router.delete("/:id/student/:studentId", async (req: Request, res: Response) => {

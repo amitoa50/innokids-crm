@@ -19,6 +19,9 @@ interface FormData {
   branch: string
   dayOfWeek: string
   time: string
+  startTime: string
+  endTime: string
+  startDate: string
   maxCapacity: string
   teacherId: string
 }
@@ -36,6 +39,9 @@ export default function GroupModal({ isOpen, onClose, group }: Props) {
       branch: group.branch || "",
       dayOfWeek: group.dayOfWeek || "",
       time: group.time || "",
+      startTime: group.startTime || "",
+      endTime: group.endTime || "",
+      startDate: group.startDate ? group.startDate.slice(0, 10) : "",
       maxCapacity: group.maxCapacity?.toString() || "",
       teacherId: group.teacherId?.toString() || ""
     } : {
@@ -59,6 +65,9 @@ export default function GroupModal({ isOpen, onClose, group }: Props) {
         branch: data.branch || undefined,
         dayOfWeek: data.dayOfWeek || undefined,
         time: data.time || undefined,
+        startTime: data.startTime || undefined,
+        endTime: data.endTime || undefined,
+        startDate: data.startDate || undefined,
         maxCapacity: data.maxCapacity ? Number(data.maxCapacity) : undefined,
         teacherId: data.teacherId ? Number(data.teacherId) : undefined
       }
@@ -154,6 +163,33 @@ export default function GroupModal({ isOpen, onClose, group }: Props) {
               <input
                 {...register("maxCapacity")}
                 type="number"
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">שעת התחלה</label>
+              <input
+                {...register("startTime")}
+                type="time"
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">שעת סיום</label>
+              <input
+                {...register("endTime")}
+                type="time"
+                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">תאריך פתיחה</label>
+              <input
+                {...register("startDate")}
+                type="date"
                 className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
             </div>

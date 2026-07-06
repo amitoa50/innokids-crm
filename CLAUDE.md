@@ -130,6 +130,9 @@ chore-app/
 - **Task** — internal follow-up/to-do, optionally linked to lead or student.
 - **ActivityLog** — audit trail for all actions on leads/students.
 - **LeadIntake** — webhook audit log for external lead sources.
+- **Conversation** — channel-scoped thread (WhatsApp/email/SMS/phone/manual) belonging to a lead or student.
+- **Message** — single inbound/outbound communication inside a conversation, with delivery status.
+- **ExternalRef** — maps internal entities to external-system IDs (Meta/Instagram/website/WhatsApp/Calendar). Idempotency key `@@unique([system, externalId])`.
 
 ---
 
@@ -140,7 +143,7 @@ All routes use singular entity names. Error responses follow shape: `{ error: { 
 | Route prefix | Description |
 |-------------|-------------|
 | `/api/auth` | Login, register |
-| `/api/lead` | Lead CRUD, status changes, assign, convert, reopen, notes |
+| `/api/lead` | Lead CRUD, status changes (transition-guarded), assign, convert, reopen, notes, conversation/message logging |
 | `/api/lead-intake` | Webhook intake (`POST /webhook/:source`), intake log |
 | `/api/student` | Student CRUD |
 | `/api/group` | Group CRUD, add/remove students |
@@ -194,3 +197,7 @@ npm run preview           # preview production build
 - **PrismaClient singleton** at `src/lib/prisma.ts` — never instantiate directly.
 - **Express v5** handles async errors natively (no try/catch wrappers needed).
 - **SQLite** uses string fields for enums (no native enum support).
+- **Pipeline transitions** are guarded application-side via `src/lib/pipeline.ts` (allowed-transition map). Illegal moves return `409 INVALID_TRANSITION`. Auto-stage: trial `NO_SHOW` → lead `NO_RESPONSE`; trial `COMPLETED` → `TRIAL_COMPLETED` + follow-up; daily cron advances post-trial leads to `FOLLOW_UP_AFTER_TRIAL` and ages stale leads to `NO_RESPONSE`.
+- **Communication spine:** channel-agnostic `Conversation` + `Message`. WhatsApp and other channels attach as adapters (Phase 2). Consent (`whatsappConsent`, `marketingConsent`, `preferredChannel`) gates outbound messaging.
+- **External-ID idempotency:** lead intake with an `externalId` (e.g. Meta `leadgen_id`) is deduped via `ExternalRef` before phone dedup; replays return the same lead.
+- **Group capacity** enforced on assignment/conversion — full group returns `409 GROUP_FULL` and flips `status` to `FULL`.

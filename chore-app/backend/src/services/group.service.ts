@@ -8,6 +8,10 @@ interface CreateGroupData {
   branch?: string
   dayOfWeek?: string
   time?: string
+  startTime?: string
+  endTime?: string
+  startDate?: string
+  timezone?: string
   maxCapacity?: number
   teacherId?: number
 }
@@ -20,6 +24,10 @@ interface UpdateGroupData {
   branch?: string
   dayOfWeek?: string
   time?: string
+  startTime?: string
+  endTime?: string
+  startDate?: string
+  timezone?: string
   maxCapacity?: number
   teacherId?: number | null
   status?: string
@@ -83,16 +91,55 @@ export async function updateGroup(id: number, data: UpdateGroupData) {
   })
 }
 
+// Returns { ok: true } when the group can take another student, or a reason otherwise.
+export async function checkGroupCapacity(groupId: number) {
+  const group = await prisma.group.findUnique({
+    where: { id: groupId },
+    include: { _count: { select: { students: true } } }
+  })
+  if (!group) return { ok: false as const, reason: "GROUP_NOT_FOUND" as const }
+  if (group.maxCapacity != null && group._count.students >= group.maxCapacity) {
+    return { ok: false as const, reason: "GROUP_FULL" as const }
+  }
+  return { ok: true as const, count: group._count.students, maxCapacity: group.maxCapacity }
+}
+
+// Flips group status to FULL when it reaches capacity after an assignment.
+export async function refreshGroupFullStatus(groupId: number) {
+  const group = await prisma.group.findUnique({
+    where: { id: groupId },
+    include: { _count: { select: { students: true } } }
+  })
+  if (!group || group.maxCapacity == null) return
+  if (group._count.students >= group.maxCapacity && group.status === "ACTIVE") {
+    await prisma.group.update({ where: { id: groupId }, data: { status: "FULL" } })
+  } else if (group._count.students < group.maxCapacity && group.status === "FULL") {
+    await prisma.group.update({ where: { id: groupId }, data: { status: "ACTIVE" } })
+  }
+}
+
 export async function addStudentToGroup(groupId: number, studentId: number) {
-  return prisma.student.update({
+  const capacity = await checkGroupCapacity(groupId)
+  if (!capacity.ok) return { error: capacity.reason }
+
+  const student = await prisma.student.update({
     where: { id: studentId },
     data: { groupId }
   })
+
+  await refreshGroupFullStatus(groupId)
+  return { student }
 }
 
 export async function removeStudentFromGroup(studentId: number) {
-  return prisma.student.update({
+  const current = await prisma.student.findUnique({ where: { id: studentId } })
+  const student = await prisma.student.update({
     where: { id: studentId },
     data: { groupId: null }
   })
+
+  if (current?.groupId) {
+    await refreshGroupFullStatus(current.groupId)
+  }
+  return student
 }

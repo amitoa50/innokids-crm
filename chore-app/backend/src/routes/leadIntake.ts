@@ -3,6 +3,7 @@ import { authenticate, requireAdmin } from "../middleware/auth"
 import { validateApiKey } from "../middleware/apiKey"
 import prisma from "../lib/prisma"
 import * as leadService from "../services/lead.service"
+import * as externalRefService from "../services/externalRef.service"
 import { normalize as facebookNormalize } from "../services/normalizer/facebook"
 import { normalize as instagramNormalize } from "../services/normalizer/instagram"
 import { normalize as websiteNormalize } from "../services/normalizer/website"
@@ -44,15 +45,45 @@ router.post("/webhook/:source", validateApiKey, async (req: Request, res: Respon
     return
   }
 
+  const system = source.toUpperCase()
+
+  // External-ID idempotency: a replayed external event returns the same lead
+  if (normalized.externalId) {
+    const existingRef = await externalRefService.findByExternalId(system, normalized.externalId)
+    if (existingRef) {
+      await prisma.leadIntake.update({
+        where: { id: intake.id },
+        data: { status: "DUPLICATE_EXTERNAL", leadId: existingRef.entityId }
+      })
+
+      res.status(200).json({
+        status: "DUPLICATE_EXTERNAL",
+        leadId: existingRef.entityId,
+        requestId: req.requestId
+      })
+      return
+    }
+  }
+
   const result = await leadService.createLead({
     fullName: normalized.fullName,
     phone: normalized.phone,
     email: normalized.email,
-    source: source.toUpperCase(),
+    source: system,
     campaignName: normalized.campaignName,
     learningFormat: normalized.learningFormat,
     branch: normalized.branch
   })
+
+  if (normalized.externalId) {
+    await externalRefService.linkExternalId({
+      entityType: "LEAD",
+      entityId: result.lead.id,
+      system,
+      externalId: normalized.externalId,
+      metadata: { source, action: result.action }
+    })
+  }
 
   await prisma.leadIntake.update({
     where: { id: intake.id },

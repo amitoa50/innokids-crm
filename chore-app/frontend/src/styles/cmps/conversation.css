@@ -1,0 +1,37 @@
+/* Conversation message bubbles */
+.conversation {
+  --msg-radius: 0.75rem;
+  --msg-in-bg: var(--color-slate-100, #f1f5f9);
+  --msg-out-bg: var(--color-indigo-50, #eef2ff);
+
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.conversation .msg {
+  max-width: 85%;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--msg-radius);
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.conversation .msg.inbound {
+  align-self: flex-start;
+  background: var(--msg-in-bg);
+  color: #334155;
+}
+
+.conversation .msg.outbound {
+  align-self: flex-end;
+  background: var(--msg-out-bg);
+  color: #3730a3;
+}
+
+.conversation .msg .meta {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.6875rem;
+  opacity: 0.65;
+}

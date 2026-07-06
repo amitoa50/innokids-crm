@@ -1,5 +1,7 @@
 import prisma from "../lib/prisma"
 import { normalizePhone } from "../lib/phoneNormalizer"
+import { canTransition } from "../lib/pipeline"
+import { checkGroupCapacity, refreshGroupFullStatus } from "./group.service"
 import { logActivity } from "./activityLog.service"
 import { createNotification, notifyAdmins } from "./notification.service"
 
@@ -13,6 +15,11 @@ interface CreateLeadData {
   branch?: string
   assignedToId?: number
   notes?: string
+  childName?: string
+  childBirthYear?: number
+  whatsappConsent?: boolean
+  marketingConsent?: boolean
+  preferredChannel?: string
 }
 
 interface ConvertData {
@@ -92,7 +99,13 @@ export async function createLead(data: CreateLeadData, performedById?: number) {
       learningFormat: data.learningFormat,
       branch: data.branch,
       assignedToId: data.assignedToId,
-      notes: data.notes
+      notes: data.notes,
+      childName: data.childName,
+      childBirthYear: data.childBirthYear,
+      whatsappConsent: data.whatsappConsent ?? false,
+      whatsappConsentAt: data.whatsappConsent ? new Date() : undefined,
+      marketingConsent: data.marketingConsent ?? false,
+      preferredChannel: data.preferredChannel
     }
   })
 
@@ -109,20 +122,31 @@ export async function createLead(data: CreateLeadData, performedById?: number) {
   return { lead, action: "SUCCESS" as const }
 }
 
-export async function updateLeadStatus(
+// Shared status setter with transition validation.
+// System/auto callers pass { system: true } to skip silently on illegal moves
+// and to avoid bumping lastContactDate.
+export async function setLeadStatus(
   id: number,
   newStatus: string,
-  performedById: number
+  performedById: number | undefined,
+  opts: { system?: boolean } = {}
 ) {
   const lead = await prisma.lead.findUnique({ where: { id } })
   if (!lead) return null
 
   const oldStatus = lead.status
+  if (!canTransition(oldStatus, newStatus)) {
+    if (opts.system) return lead
+    return { error: "INVALID_TRANSITION" as const, from: oldStatus, to: newStatus }
+  }
+
+  if (oldStatus === newStatus) return lead
+
   const updated = await prisma.lead.update({
     where: { id },
     data: {
       status: newStatus,
-      lastContactDate: new Date()
+      ...(opts.system ? {} : { lastContactDate: new Date() })
     }
   })
 
@@ -131,10 +155,18 @@ export async function updateLeadStatus(
     description: `סטטוס ליד שונה: ${oldStatus} → ${newStatus}`,
     leadId: id,
     performedById,
-    metadata: { oldStatus, newStatus }
+    metadata: { oldStatus, newStatus, system: opts.system || false }
   })
 
   return updated
+}
+
+export async function updateLeadStatus(
+  id: number,
+  newStatus: string,
+  performedById: number
+) {
+  return setLeadStatus(id, newStatus, performedById)
 }
 
 export async function assignLead(
@@ -170,7 +202,12 @@ export async function convertLead(
 ) {
   const lead = await prisma.lead.findUnique({ where: { id } })
   if (!lead) return null
-  if (lead.status === "CONVERTED") return { error: "ALREADY_CONVERTED" }
+  if (lead.status === "CONVERTED") return { error: "ALREADY_CONVERTED" as const }
+
+  if (studentData.groupId) {
+    const capacity = await checkGroupCapacity(studentData.groupId)
+    if (!capacity.ok) return { error: capacity.reason }
+  }
 
   const student = await prisma.student.create({
     data: {
@@ -182,6 +219,10 @@ export async function convertLead(
       groupId: studentData.groupId
     }
   })
+
+  if (studentData.groupId) {
+    await refreshGroupFullStatus(studentData.groupId)
+  }
 
   await prisma.lead.update({
     where: { id },

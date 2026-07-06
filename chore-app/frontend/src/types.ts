@@ -36,6 +36,12 @@ export interface Lead {
   branch: string | null
   closedReason: string | null
   notes: string | null
+  childName: string | null
+  childBirthYear: number | null
+  whatsappConsent: boolean
+  whatsappConsentAt: string | null
+  marketingConsent: boolean
+  preferredChannel: string | null
   createdAt: string
   updatedAt: string
   students?: Student[]
@@ -72,6 +78,10 @@ export interface Group {
   branch: string | null
   dayOfWeek: string | null
   time: string | null
+  startTime: string | null
+  endTime: string | null
+  startDate: string | null
+  timezone: string | null
   maxCapacity: number | null
   teacherId: number | null
   teacher?: { id?: number; name: string } | null
@@ -89,6 +99,9 @@ export interface TrialLesson {
   groupId: number | null
   group?: { id?: number; name: string } | null
   scheduledAt: string
+  durationMinutes: number | null
+  locationType: string | null
+  meetingUrl: string | null
   status: "SCHEDULED" | "COMPLETED" | "NO_SHOW" | "CANCELLED"
   outcome: string | null
   teacherId: number | null
@@ -137,6 +150,42 @@ export interface LeadIntake {
   leadId: number | null
   lead?: { fullName: string; phone: string } | null
   errorMessage: string | null
+  createdAt: string
+}
+
+export interface Message {
+  id: number
+  conversationId: number
+  direction: "INBOUND" | "OUTBOUND"
+  channel: string
+  body: string
+  status: string
+  templateName: string | null
+  sentById: number | null
+  sentBy?: { id: number; name: string } | null
+  sentAt: string | null
+  createdAt: string
+}
+
+export interface Conversation {
+  id: number
+  leadId: number | null
+  studentId: number | null
+  channel: string
+  status: "OPEN" | "SNOOZED" | "CLOSED"
+  lastMessageAt: string | null
+  createdAt: string
+  updatedAt: string
+  messages: Message[]
+}
+
+export interface ExternalRef {
+  id: number
+  entityType: string
+  entityId: number
+  system: string
+  externalId: string
+  metadata: string | null
   createdAt: string
 }
 

@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express"
 import { authenticate } from "../middleware/auth"
 import prisma from "../lib/prisma"
 import * as leadService from "../services/lead.service"
+import * as communicationService from "../services/communication.service"
 const router = Router()
 
 router.use(authenticate)
@@ -70,7 +71,7 @@ router.get("/:id", async (req: Request, res: Response) => {
 })
 
 router.post("/", async (req: Request, res: Response) => {
-  const { fullName, phone, email, source, campaignName, learningFormat, branch, assignedToId, notes } = req.body
+  const { fullName, phone, email, source, campaignName, learningFormat, branch, assignedToId, notes, childName, childBirthYear, whatsappConsent, marketingConsent, preferredChannel } = req.body
 
   if (!fullName || !phone) {
     res.status(400).json({
@@ -81,7 +82,7 @@ router.post("/", async (req: Request, res: Response) => {
   }
 
   const result = await leadService.createLead(
-    { fullName, phone, email, source, campaignName, learningFormat, branch, assignedToId, notes },
+    { fullName, phone, email, source, campaignName, learningFormat, branch, assignedToId, notes, childName, childBirthYear, whatsappConsent, marketingConsent, preferredChannel },
     req.user!.userId
   )
 
@@ -90,7 +91,7 @@ router.post("/", async (req: Request, res: Response) => {
 
 router.put("/:id", async (req: Request, res: Response) => {
   const id = Number(req.params.id)
-  const { fullName, phone, email, learningFormat, branch, nextFollowUpDate, notes } = req.body
+  const { fullName, phone, email, learningFormat, branch, nextFollowUpDate, notes, childName, childBirthYear, whatsappConsent, marketingConsent, preferredChannel } = req.body
 
   const lead = await prisma.lead.findUnique({ where: { id } })
   if (!lead) {
@@ -112,7 +113,15 @@ router.put("/:id", async (req: Request, res: Response) => {
       ...(nextFollowUpDate !== undefined && {
         nextFollowUpDate: nextFollowUpDate ? new Date(nextFollowUpDate) : null
       }),
-      ...(notes !== undefined && { notes })
+      ...(notes !== undefined && { notes }),
+      ...(childName !== undefined && { childName }),
+      ...(childBirthYear !== undefined && { childBirthYear }),
+      ...(whatsappConsent !== undefined && {
+        whatsappConsent,
+        whatsappConsentAt: whatsappConsent ? (lead.whatsappConsentAt ?? new Date()) : null
+      }),
+      ...(marketingConsent !== undefined && { marketingConsent }),
+      ...(preferredChannel !== undefined && { preferredChannel })
     }
   })
 
@@ -138,8 +147,8 @@ router.put("/:id/status", async (req: Request, res: Response) => {
     })
   }
 
-  const updated = await leadService.updateLeadStatus(id, status, req.user!.userId)
-  if (!updated) {
+  const result = await leadService.updateLeadStatus(id, status, req.user!.userId)
+  if (!result) {
     res.status(404).json({
       error: { code: "NOT_FOUND", message: "Lead not found" },
       requestId: req.requestId
@@ -147,7 +156,19 @@ router.put("/:id/status", async (req: Request, res: Response) => {
     return
   }
 
-  res.json(updated)
+  if ("error" in result) {
+    res.status(409).json({
+      error: {
+        code: "INVALID_TRANSITION",
+        message: `Cannot move lead from ${result.from} to ${result.to}`,
+        details: { from: result.from, to: result.to }
+      },
+      requestId: req.requestId
+    })
+    return
+  }
+
+  res.json(result)
 })
 
 router.put("/:id/assign", async (req: Request, res: Response) => {
@@ -201,6 +222,20 @@ router.post("/:id/convert", async (req: Request, res: Response) => {
   }
 
   if ("error" in result) {
+    if (result.error === "GROUP_NOT_FOUND") {
+      res.status(404).json({
+        error: { code: "NOT_FOUND", message: "Group not found" },
+        requestId: req.requestId
+      })
+      return
+    }
+    if (result.error === "GROUP_FULL") {
+      res.status(409).json({
+        error: { code: "GROUP_FULL", message: "Group is at full capacity" },
+        requestId: req.requestId
+      })
+      return
+    }
     res.status(409).json({
       error: { code: "ALREADY_CONVERTED", message: "Lead is already converted" },
       requestId: req.requestId
@@ -256,6 +291,52 @@ router.post("/:id/note", async (req: Request, res: Response) => {
   }
 
   res.json(updated)
+})
+
+router.get("/:id/conversation", async (req: Request, res: Response) => {
+  const id = Number(req.params.id)
+
+  const lead = await prisma.lead.findUnique({ where: { id } })
+  if (!lead) {
+    res.status(404).json({
+      error: { code: "NOT_FOUND", message: "Lead not found" },
+      requestId: req.requestId
+    })
+    return
+  }
+
+  const conversations = await communicationService.getLeadConversations(id)
+  res.json(conversations)
+})
+
+router.post("/:id/message", async (req: Request, res: Response) => {
+  const id = Number(req.params.id)
+  const { channel, direction, body } = req.body
+
+  if (!channel || !direction || !body) {
+    res.status(400).json({
+      error: { code: "BAD_REQUEST", message: "channel, direction, and body are required" },
+      requestId: req.requestId
+    })
+    return
+  }
+
+  const lead = await prisma.lead.findUnique({ where: { id } })
+  if (!lead) {
+    res.status(404).json({
+      error: { code: "NOT_FOUND", message: "Lead not found" },
+      requestId: req.requestId
+    })
+    return
+  }
+
+  const conversation = await communicationService.getOrCreateConversation({ leadId: id }, channel)
+  const message = await communicationService.logMessage(
+    { conversationId: conversation.id, direction, channel, body, sentById: req.user!.userId },
+    req.user!.userId
+  )
+
+  res.status(201).json(message)
 })
 
 export default router

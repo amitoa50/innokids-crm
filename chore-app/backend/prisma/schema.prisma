@@ -23,6 +23,7 @@ model User {
   teacherTrials   TrialLesson[]  @relation("TeacherTrials")
   notifications   Notification[]
   activityLogs    ActivityLog[]  @relation("PerformedBy")
+  sentMessages    Message[]      @relation("SentMessages")
 }
 
 model Lead {
@@ -41,15 +42,22 @@ model Lead {
   branch           String?
   closedReason     String?
   notes            String?
+  childName        String?
+  childBirthYear   Int?
+  whatsappConsent    Boolean   @default(false)
+  whatsappConsentAt  DateTime?
+  marketingConsent   Boolean   @default(false)
+  preferredChannel   String?   // WHATSAPP, PHONE, EMAIL
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  assignedTo    User?         @relation("AssignedLeads", fields: [assignedToId], references: [id])
+  assignedTo    User?          @relation("AssignedLeads", fields: [assignedToId], references: [id])
   students      Student[]
   trialLessons  TrialLesson[]
-  tasks         Task[]        @relation("LeadTasks")
-  activityLogs  ActivityLog[] @relation("LeadActivities")
+  tasks         Task[]         @relation("LeadTasks")
+  activityLogs  ActivityLog[]  @relation("LeadActivities")
   leadIntakes   LeadIntake[]
+  conversations Conversation[] @relation("LeadConversations")
 }
 
 model Student {
@@ -66,10 +74,11 @@ model Student {
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  lead          Lead          @relation(fields: [leadId], references: [id])
-  group         Group?        @relation(fields: [groupId], references: [id])
-  tasks         Task[]        @relation("StudentTasks")
-  activityLogs  ActivityLog[] @relation("StudentActivities")
+  lead          Lead           @relation(fields: [leadId], references: [id])
+  group         Group?         @relation(fields: [groupId], references: [id])
+  tasks         Task[]         @relation("StudentTasks")
+  activityLogs  ActivityLog[]  @relation("StudentActivities")
+  conversations Conversation[] @relation("StudentConversations")
 }
 
 model Group {
@@ -80,7 +89,11 @@ model Group {
   learningFormat String   // ONLINE, IN_PERSON
   branch         String?
   dayOfWeek      String?
-  time           String?
+  time           String?  // legacy free-text schedule; prefer startTime/endTime
+  startTime      String?  // HH:mm
+  endTime        String?  // HH:mm
+  startDate      DateTime?
+  timezone       String?  @default("Asia/Jerusalem")
   maxCapacity    Int?
   teacherId      Int?
   status         String   @default("ACTIVE") // ACTIVE, FULL, ARCHIVED
@@ -97,6 +110,9 @@ model TrialLesson {
   leadId      Int
   groupId     Int?
   scheduledAt DateTime
+  durationMinutes Int?  @default(45)
+  locationType String? // ONLINE, IN_PERSON
+  meetingUrl  String?
   status      String   @default("SCHEDULED") // SCHEDULED, COMPLETED, NO_SHOW, CANCELLED
   outcome     String?
   teacherId   Int?
@@ -164,4 +180,53 @@ model Notification {
 
   user   User @relation(fields: [userId], references: [id])
   userId Int
+}
+
+model Conversation {
+  id            Int       @id @default(autoincrement())
+  leadId        Int?
+  studentId     Int?
+  channel       String    // WHATSAPP, EMAIL, SMS, PHONE, MANUAL, SYSTEM
+  status        String    @default("OPEN") // OPEN, SNOOZED, CLOSED
+  lastMessageAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  lead     Lead?     @relation("LeadConversations", fields: [leadId], references: [id])
+  student  Student?  @relation("StudentConversations", fields: [studentId], references: [id])
+  messages Message[]
+
+  @@index([leadId])
+  @@index([studentId])
+}
+
+model Message {
+  id             Int       @id @default(autoincrement())
+  conversationId Int
+  direction      String    // INBOUND, OUTBOUND
+  channel        String    // WHATSAPP, EMAIL, SMS, PHONE, MANUAL, SYSTEM
+  body           String
+  status         String    @default("LOGGED") // LOGGED, PENDING, SENT, DELIVERED, READ, FAILED, RECEIVED
+  templateName   String?
+  sentById       Int?
+  sentAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  sentBy       User?        @relation("SentMessages", fields: [sentById], references: [id])
+
+  @@index([conversationId])
+}
+
+model ExternalRef {
+  id         Int      @id @default(autoincrement())
+  entityType String   // LEAD, STUDENT, TRIAL_LESSON, GROUP, MESSAGE, CONVERSATION
+  entityId   Int
+  system     String   // META, INSTAGRAM, WEBSITE, WHATSAPP, GOOGLE_CALENDAR
+  externalId String
+  metadata   String?  // JSON string
+  createdAt  DateTime @default(now())
+
+  @@unique([system, externalId])
+  @@index([entityType, entityId])
 }

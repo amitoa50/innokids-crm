@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { ArrowRight, Phone, Mail, Copy } from "lucide-react"
 import { toast } from "sonner"
 import client from "../api/client"
-import type { Lead, User } from "../types"
+import type { Lead, User, Conversation } from "../types"
 import StatusBadge from "../components/StatusBadge"
 import ActivityTimeline from "../components/ActivityTimeline"
 import StudentModal from "../components/StudentModal"
@@ -24,6 +24,9 @@ export default function LeadDetails() {
   const [showTrial, setShowTrial] = useState(false)
   const [showTask, setShowTask] = useState(false)
   const [note, setNote] = useState("")
+  const [msgBody, setMsgBody] = useState("")
+  const [msgChannel, setMsgChannel] = useState("WHATSAPP")
+  const [msgDirection, setMsgDirection] = useState("OUTBOUND")
 
   const { data: lead } = useQuery<Lead>({
     queryKey: ["lead", id],
@@ -35,12 +38,37 @@ export default function LeadDetails() {
     queryFn: async () => { const { data } = await client.get("/user"); return data }
   })
 
+  const { data: conversations = [] } = useQuery<Conversation[]>({
+    queryKey: ["conversation", id],
+    queryFn: async () => { const { data } = await client.get(`/lead/${id}/conversation`); return data }
+  })
+
   const statusMutation = useMutation({
     mutationFn: (status: string) => client.put(`/lead/${id}/status`, { status }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lead", id] })
       toast.success("סטטוס עודכן")
+    },
+    onError: (err: unknown) => {
+      const e = err as { response?: { data?: { error?: { code?: string } } } }
+      if (e.response?.data?.error?.code === "INVALID_TRANSITION") {
+        toast.error("מעבר סטטוס לא חוקי בשלב זה")
+      } else {
+        toast.error("עדכון הסטטוס נכשל")
+      }
     }
+  })
+
+  const messageMutation = useMutation({
+    mutationFn: (body: { channel: string; direction: string; body: string }) =>
+      client.post(`/lead/${id}/message`, body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["conversation", id] })
+      queryClient.invalidateQueries({ queryKey: ["lead", id] })
+      setMsgBody("")
+      toast.success("הודעה נרשמה")
+    },
+    onError: () => toast.error("רישום ההודעה נכשל")
   })
 
   const assignMutation = useMutation({
@@ -181,6 +209,66 @@ export default function LeadDetails() {
             )}
           </div>
 
+          {/* Communication */}
+          <div className="bg-white rounded-xl border border-slate-200 p-5">
+            <h3 className="font-semibold text-slate-800 mb-3">תקשורת</h3>
+            <div className="flex flex-wrap gap-2 mb-3">
+              <select
+                value={msgChannel}
+                onChange={(e) => setMsgChannel(e.target.value)}
+                className="border border-slate-300 rounded-lg px-2 py-2 text-sm"
+              >
+                <option value="WHATSAPP">וואטסאפ</option>
+                <option value="PHONE">טלפון</option>
+                <option value="EMAIL">אימייל</option>
+                <option value="SMS">SMS</option>
+                <option value="MANUAL">אחר</option>
+              </select>
+              <select
+                value={msgDirection}
+                onChange={(e) => setMsgDirection(e.target.value)}
+                className="border border-slate-300 rounded-lg px-2 py-2 text-sm"
+              >
+                <option value="OUTBOUND">יוצאת</option>
+                <option value="INBOUND">נכנסת</option>
+              </select>
+              <input
+                value={msgBody}
+                onChange={(e) => setMsgBody(e.target.value)}
+                placeholder="רשום הודעה..."
+                className="flex-1 min-w-40 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                onKeyDown={(e) => e.key === "Enter" && msgBody && messageMutation.mutate({ channel: msgChannel, direction: msgDirection, body: msgBody })}
+              />
+              <button
+                onClick={() => msgBody && messageMutation.mutate({ channel: msgChannel, direction: msgDirection, body: msgBody })}
+                disabled={!msgBody || messageMutation.isPending}
+                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+              >
+                רשום
+              </button>
+            </div>
+            {conversations.length === 0 ? (
+              <p className="text-sm text-slate-400">אין תקשורת מתועדת</p>
+            ) : (
+              conversations.map((c) => (
+                <div key={c.id} className="mb-4">
+                  <p className="text-xs text-slate-400 mb-1">{c.channel}</p>
+                  <div className="conversation">
+                    {c.messages.map((m) => (
+                      <div key={m.id} className={`msg ${m.direction === "INBOUND" ? "inbound" : "outbound"}`}>
+                        {m.body}
+                        <span className="meta">
+                          {new Date(m.createdAt).toLocaleString("he-IL")}
+                          {m.sentBy ? ` · ${m.sentBy.name}` : ""}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
           {/* Activity Timeline */}
           <div className="bg-white rounded-xl border border-slate-200 p-5">
             <h3 className="font-semibold text-slate-800 mb-4">היסטוריית פעילות</h3>
@@ -216,6 +304,22 @@ export default function LeadDetails() {
                   <span className="text-slate-700">{lead.branch}</span>
                 </div>
               )}
+              {lead.childName && (
+                <div className="flex justify-between">
+                  <span className="text-slate-500">ילד/ה</span>
+                  <span className="text-slate-700">{lead.childName}{lead.childBirthYear ? ` (${lead.childBirthYear})` : ""}</span>
+                </div>
+              )}
+              {lead.preferredChannel && (
+                <div className="flex justify-between">
+                  <span className="text-slate-500">ערוץ מועדף</span>
+                  <span className="text-slate-700">{lead.preferredChannel}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-slate-500">וואטסאפ</span>
+                <span className="text-slate-700">{lead.whatsappConsent ? "מאושר" : "לא מאושר"}</span>
+              </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">נוצר</span>
                 <span className="text-slate-700">{new Date(lead.createdAt).toLocaleDateString("he-IL")}</span>
@@ -274,6 +378,7 @@ export default function LeadDetails() {
         isOpen={showTrial}
         onClose={() => setShowTrial(false)}
         defaultLeadId={Number(id)}
+        defaultLeadName={lead.fullName}
       />
       <TaskModal
         isOpen={showTask}

@@ -7,6 +7,7 @@ export function normalize(payload: Record<string, unknown>): NormalizedLead {
     email: (payload.email) as string | undefined,
     campaignName: (payload.campaignName || payload.campaign_name) as string | undefined,
     learningFormat: (payload.learningFormat || payload.learning_format) as string | undefined,
-    branch: (payload.branch) as string | undefined
+    branch: (payload.branch) as string | undefined,
+    externalId: (payload.externalId || payload.external_id || payload.id) as string | undefined
   }
 }

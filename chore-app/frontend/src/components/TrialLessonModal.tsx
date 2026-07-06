@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react"
 import { useForm } from "react-hook-form"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { X } from "lucide-react"
@@ -9,6 +10,7 @@ interface Props {
   isOpen: boolean
   onClose: () => void
   defaultLeadId?: number
+  defaultLeadName?: string
 }
 
 interface FormData {
@@ -19,8 +21,9 @@ interface FormData {
   notes: string
 }
 
-export default function TrialLessonModal({ isOpen, onClose, defaultLeadId }: Props) {
+export default function TrialLessonModal({ isOpen, onClose, defaultLeadId, defaultLeadName }: Props) {
   const queryClient = useQueryClient()
+  const [changingLead, setChangingLead] = useState(false)
 
   const { register, handleSubmit, reset } = useForm<FormData>({
     defaultValues: {
@@ -30,6 +33,21 @@ export default function TrialLessonModal({ isOpen, onClose, defaultLeadId }: Pro
       notes: ""
     }
   })
+
+  // Re-seed the form each time the modal opens so a launched-from-lead context
+  // preselects (and locks) the right lead, even before the leads list loads.
+  useEffect(() => {
+    if (isOpen) {
+      reset({
+        leadId: defaultLeadId?.toString() || "",
+        groupId: "",
+        scheduledAt: "",
+        teacherId: "",
+        notes: ""
+      })
+      setChangingLead(false)
+    }
+  }, [isOpen, defaultLeadId, reset])
 
   const { data: leads = [] } = useQuery<Lead[]>({
     queryKey: ["leads"],
@@ -86,12 +104,28 @@ export default function TrialLessonModal({ isOpen, onClose, defaultLeadId }: Pro
         <form onSubmit={handleSubmit((data) => mutation.mutate(data))} className="p-5 space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">ליד *</label>
-            <select {...register("leadId", { required: true })} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
-              <option value="">בחר ליד...</option>
-              {leads.map((l) => (
-                <option key={l.id} value={l.id}>{l.fullName} - {l.phone}</option>
-              ))}
-            </select>
+            {defaultLeadId && !changingLead ? (
+              <div className="flex items-center gap-2">
+                <input type="hidden" {...register("leadId", { required: true })} />
+                <div className="flex-1 border border-slate-200 bg-slate-50 rounded-lg px-3 py-2 text-sm text-slate-700">
+                  {defaultLeadName || leads.find((l) => l.id === defaultLeadId)?.fullName || "ליד נבחר"}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setChangingLead(true)}
+                  className="px-3 py-2 text-sm font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100"
+                >
+                  שנה ליד
+                </button>
+              </div>
+            ) : (
+              <select {...register("leadId", { required: true })} className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                <option value="">בחר ליד...</option>
+                {leads.map((l) => (
+                  <option key={l.id} value={l.id}>{l.fullName} - {l.phone}</option>
+                ))}
+              </select>
+            )}
           </div>
 
           <div>
