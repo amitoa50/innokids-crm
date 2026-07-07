@@ -221,11 +221,28 @@ export interface ScheduledMessage {
   templateName: string
   variables: string | null
   dueAt: string
-  status: "PENDING" | "SENT" | "CANCELLED" | "FAILED"
+  status: "PENDING" | "SENDING" | "SENT" | "CANCELLED" | "FAILED"
   failureReason: string | null
   messageId: number | null
   createdAt: string
   updatedAt: string
+}
+
+export interface ScheduledMessageItem {
+  id: number
+  status: string
+  templateName: string
+  triggerEvent: string
+  dueAt: string
+  failureReason: string | null
+  createdAt: string
+  updatedAt: string
+  lead: { id: number; fullName: string } | null
+}
+
+export interface ScheduledMessageList {
+  counts: Record<string, number>
+  items: ScheduledMessageItem[]
 }
 
 export interface Notification {

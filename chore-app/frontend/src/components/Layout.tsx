@@ -8,6 +8,7 @@ import {
   GraduationCap,
   UsersRound,
   Users,
+  Workflow,
   LogOut
 } from "lucide-react"
 import { useAuth } from "../hooks/useAuth"
@@ -52,19 +53,34 @@ export default function Layout() {
             </NavLink>
           ))}
           {isAdmin && (
-            <NavLink
-              to="/team"
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? "bg-indigo-600 text-white"
-                    : "text-slate-300 hover:bg-slate-800 hover:text-white"
-                }`
-              }
-            >
-              <Users size={18} />
-              צוות
-            </NavLink>
+            <>
+              <NavLink
+                to="/team"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? "bg-indigo-600 text-white"
+                      : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                  }`
+                }
+              >
+                <Users size={18} />
+                צוות
+              </NavLink>
+              <NavLink
+                to="/automation"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? "bg-indigo-600 text-white"
+                      : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                  }`
+                }
+              >
+                <Workflow size={18} />
+                אוטומציות
+              </NavLink>
+            </>
           )}
         </nav>
 

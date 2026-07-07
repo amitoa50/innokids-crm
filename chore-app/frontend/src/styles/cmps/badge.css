@@ -100,6 +100,22 @@
   color: var(--color-status-no-response);
 }
 
+/* Automation outbox status */
+.badge--sent {
+  background-color: color-mix(in srgb, var(--color-status-converted) 15%, transparent);
+  color: var(--color-status-converted);
+}
+
+.badge--sending {
+  background-color: color-mix(in srgb, var(--color-status-no-response) 15%, transparent);
+  color: var(--color-status-no-response);
+}
+
+.badge--failed {
+  background-color: color-mix(in srgb, var(--color-priority-high) 15%, transparent);
+  color: var(--color-priority-high);
+}
+
 /* Student/Group status */
 .badge--active {
   background-color: color-mix(in srgb, var(--color-status-converted) 15%, transparent);

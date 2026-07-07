@@ -14,6 +14,7 @@ import Students from "./pages/Students"
 import StudentDetails from "./pages/StudentDetails"
 import Groups from "./pages/Groups"
 import Team from "./pages/Team"
+import Automation from "./pages/Automation"
 import type { ReactNode } from "react"
 
 const queryClient = new QueryClient({
@@ -80,6 +81,14 @@ export default function App() {
                 element={
                   <AdminRoute>
                     <Team />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="automation"
+                element={
+                  <AdminRoute>
+                    <Automation />
                   </AdminRoute>
                 }
               />
