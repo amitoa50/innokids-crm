@@ -65,7 +65,7 @@ export const registry: Record<string, RuleDef> = {
     }
   },
   POST_TRIAL_FOLLOW_UP: {
-    resolveVariables: (ctx) => [ctx.parentName, ctx.childName ?? ""],
+    resolveVariables: (ctx) => [ctx.parentName, ctx.childName || "הילד/ה"],
     guard: async (_row, lead) =>
       lead.status === "CONVERTED" || lead.status === "CLOSED"
         ? { ok: false, reason: `LEAD_${lead.status}` }
@@ -84,7 +84,7 @@ export const registry: Record<string, RuleDef> = {
     }
   },
   STUDENT_WELCOME: {
-    resolveVariables: (ctx) => [ctx.parentName, ctx.childName ?? ""],
+    resolveVariables: (ctx) => [ctx.parentName, ctx.childName || "הילד/ה"],
     guard: async (row) => {
       const student = await prisma.student.findUnique({ where: { id: row.entityId ?? -1 } })
       return student ? { ok: true } : { ok: false, reason: "STUDENT_NOT_FOUND" }
