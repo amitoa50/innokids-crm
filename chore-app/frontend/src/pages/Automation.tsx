@@ -3,20 +3,10 @@ import { useQuery } from "@tanstack/react-query"
 import { Link } from "react-router-dom"
 import { toast } from "sonner"
 import client from "../api/client"
-import type { AutomationRule, ScheduledMessageList } from "../types"
+import type { AutomationRule, ScheduledMessageList, TemplateWithUsage } from "../types"
 import StatusBadge from "../components/StatusBadge"
-
-const triggerLabels: Record<string, string> = {
-  LEAD_WELCOME: "ליד חדש — פתיחה",
-  NO_RESPONSE_NUDGE: "ללא מענה — תזכורת",
-  TRIAL_CONFIRMATION: "ניסיון — אישור",
-  TRIAL_REMINDER: "ניסיון — תזכורת",
-  POST_TRIAL_FOLLOW_UP: "אחרי ניסיון — מעקב",
-  TRIAL_NO_SHOW_RESCHEDULE: "לא הגיע — תיאום מחדש",
-  STUDENT_WELCOME: "תלמיד חדש — ברוכים הבאים"
-}
-
-const triggerLabel = (t: string) => triggerLabels[t] || t
+import TemplateEditorModal from "../components/TemplateEditorModal"
+import { triggerLabel } from "../lib/automationLabels"
 
 function hebUnit(n: number, one: string, many: string): string {
   return n === 1 ? one : `${n} ${many}`
@@ -64,9 +54,18 @@ export default function Automation() {
     refetchInterval: 30000
   })
 
+  const [editing, setEditing] = useState<TemplateWithUsage | null>(null)
+  const templates = useQuery<TemplateWithUsage[]>({
+    queryKey: ["automation", "template"],
+    queryFn: async () => {
+      const { data } = await client.get("/automation/template")
+      return data
+    }
+  })
+
   useEffect(() => {
-    if (rules.isError || outbox.isError) toast.error("טעינת האוטומציות נכשלה")
-  }, [rules.isError, outbox.isError])
+    if (rules.isError || outbox.isError || templates.isError) toast.error("טעינת האוטומציות נכשלה")
+  }, [rules.isError, outbox.isError, templates.isError])
 
   const counts = outbox.data?.counts || {}
   const total = Object.values(counts).reduce((a, b) => a + b, 0)
@@ -103,6 +102,48 @@ export default function Automation() {
                     <td className="px-4 py-3" dir="ltr">{r.templateName}</td>
                     <td className="px-4 py-3">{timingLabel(r.offsetMinutes)}</td>
                     <td className="px-4 py-3"><StatusBadge status={r.active ? "ACTIVE" : "INACTIVE"} /></td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* Templates */}
+      <section>
+        <h2 className="text-lg font-semibold text-slate-800 mb-3">תבניות הודעה</h2>
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <table className="w-full text-sm text-right">
+            <thead className="bg-slate-50 text-slate-500">
+              <tr>
+                <th className="px-4 py-3 font-medium">תבנית</th>
+                <th className="px-4 py-3 font-medium">אוטומציה</th>
+                <th className="px-4 py-3 font-medium">תוכן</th>
+                <th className="px-4 py-3 font-medium"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {templates.isLoading ? (
+                <tr><td colSpan={4} className="px-4 py-6 text-center text-slate-400">טוען...</td></tr>
+              ) : (templates.data?.length ?? 0) === 0 ? (
+                <tr><td colSpan={4} className="px-4 py-6 text-center text-slate-400">אין תבניות</td></tr>
+              ) : (
+                templates.data!.map((t) => (
+                  <tr key={t.id} className="text-slate-700">
+                    <td className="px-4 py-3" dir="ltr">{t.name}</td>
+                    <td className="px-4 py-3 text-slate-500">{t.usedBy.map((u) => triggerLabel(u.triggerEvent)).join(", ") || "—"}</td>
+                    <td className="px-4 py-3">
+                      <div className="max-w-md overflow-hidden text-ellipsis whitespace-nowrap text-slate-500">{t.body}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => setEditing(t)}
+                        className="px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100"
+                      >
+                        ערוך
+                      </button>
+                    </td>
                   </tr>
                 ))
               )}
@@ -172,6 +213,8 @@ export default function Automation() {
           </table>
         </div>
       </section>
+
+      {editing && <TemplateEditorModal template={editing} onClose={() => setEditing(null)} />}
     </div>
   )
 }

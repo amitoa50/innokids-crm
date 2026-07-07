@@ -245,6 +245,22 @@ export interface ScheduledMessageList {
   items: ScheduledMessageItem[]
 }
 
+export interface TemplateUsage {
+  triggerEvent: string
+  name: string
+}
+
+export interface TemplateWithUsage {
+  id: number
+  name: string
+  language: string
+  category: string
+  body: string
+  status: string
+  variables: string[]
+  usedBy: TemplateUsage[]
+}
+
 export interface Notification {
   id: number
   message: string
