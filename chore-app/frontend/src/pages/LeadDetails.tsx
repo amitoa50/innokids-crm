@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { useParams, useNavigate } from "react-router-dom"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { ArrowRight, Phone, Mail, Copy } from "lucide-react"
+import { ArrowRight, Phone, Mail, Copy, Pencil } from "lucide-react"
 import { toast } from "sonner"
 import client from "../api/client"
 import type { Lead, User, Conversation } from "../types"
@@ -10,6 +10,7 @@ import ActivityTimeline from "../components/ActivityTimeline"
 import StudentModal from "../components/StudentModal"
 import TrialLessonModal from "../components/TrialLessonModal"
 import TaskModal from "../components/TaskModal"
+import LeadModal from "../components/LeadModal"
 
 const statuses = [
   "NEW", "CONTACTED", "NO_RESPONSE", "TRIAL_SCHEDULED",
@@ -31,6 +32,7 @@ export default function LeadDetails() {
   const [showConvert, setShowConvert] = useState(false)
   const [showTrial, setShowTrial] = useState(false)
   const [showTask, setShowTask] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
   const [note, setNote] = useState("")
   const [msgBody, setMsgBody] = useState("")
   const [msgChannel, setMsgChannel] = useState("WHATSAPP")
@@ -140,6 +142,13 @@ export default function LeadDetails() {
             <StatusBadge status={lead.status} />
           </div>
         </div>
+        <button
+          onClick={() => setShowEdit(true)}
+          className="flex items-center gap-1 px-3 py-2 text-sm font-medium text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200"
+        >
+          <Pencil size={14} />
+          ערוך פרטים
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -413,6 +422,11 @@ export default function LeadDetails() {
         isOpen={showTask}
         onClose={() => setShowTask(false)}
         defaultLeadId={Number(id)}
+      />
+      <LeadModal
+        isOpen={showEdit}
+        onClose={() => setShowEdit(false)}
+        lead={lead}
       />
     </div>
   )

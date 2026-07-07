@@ -50,7 +50,7 @@ export default function LeadModal({ isOpen, onClose, lead }: Props) {
       assignedToId: "",
       childName: "",
       childBirthYear: "",
-      whatsappConsent: false,
+      whatsappConsent: true,
       preferredChannel: ""
     }
   })
@@ -87,6 +87,7 @@ export default function LeadModal({ isOpen, onClose, lead }: Props) {
     onSuccess: () => {
       toast.success(isEdit ? "ליד עודכן בהצלחה" : "ליד חדש נוצר בהצלחה")
       queryClient.invalidateQueries({ queryKey: ["leads"] })
+      queryClient.invalidateQueries({ queryKey: ["lead"] })
       reset()
       onClose()
     },
