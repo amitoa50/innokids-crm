@@ -4,6 +4,7 @@ import { canTransition } from "../lib/pipeline"
 import { checkGroupCapacity, refreshGroupFullStatus } from "./group.service"
 import { logActivity } from "./activityLog.service"
 import { createNotification, notifyAdmins } from "./notification.service"
+import { enqueue } from "./automation.service"
 
 interface CreateLeadData {
   fullName: string
@@ -87,7 +88,12 @@ export async function createLead(data: CreateLeadData, performedById?: number) {
     return { lead: merged, action: "DUPLICATE_MERGED" as const }
   }
 
-  // Create new lead
+  // Create new lead.
+  // WhatsApp consent defaults ON: a lead leaving a phone number is treated as
+  // contactable. If they are not on WhatsApp the message simply won't deliver
+  // and staff follow up manually. Callers can opt out by passing false.
+  const whatsappConsent = data.whatsappConsent ?? true
+
   const lead = await prisma.lead.create({
     data: {
       fullName: data.fullName,
@@ -102,8 +108,8 @@ export async function createLead(data: CreateLeadData, performedById?: number) {
       notes: data.notes,
       childName: data.childName,
       childBirthYear: data.childBirthYear,
-      whatsappConsent: data.whatsappConsent ?? false,
-      whatsappConsentAt: data.whatsappConsent ? new Date() : undefined,
+      whatsappConsent,
+      whatsappConsentAt: whatsappConsent ? new Date() : null,
       marketingConsent: data.marketingConsent ?? false,
       preferredChannel: data.preferredChannel
     }
@@ -118,6 +124,18 @@ export async function createLead(data: CreateLeadData, performedById?: number) {
   })
 
   await notifyAdmins(`ליד חדש: ${lead.fullName} (${lead.source})`)
+
+  // A parent who messages us first already has an open window handled by staff;
+  // only outbound-source leads get the automated opening message.
+  if (lead.source !== "WHATSAPP") {
+    await enqueue("LEAD_WELCOME", {
+      leadId: lead.id,
+      entityType: "LEAD",
+      entityId: lead.id,
+      baseTime: new Date(),
+      parentName: lead.fullName
+    })
+  }
 
   return { lead, action: "SUCCESS" as const }
 }
@@ -235,6 +253,15 @@ export async function convertLead(
     leadId: id,
     studentId: student.id,
     performedById
+  })
+
+  await enqueue("STUDENT_WELCOME", {
+    leadId: id,
+    entityType: "STUDENT",
+    entityId: student.id,
+    baseTime: new Date(),
+    parentName: lead.fullName,
+    childName: studentData.childName
   })
 
   return { student }

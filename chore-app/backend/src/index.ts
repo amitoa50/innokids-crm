@@ -8,6 +8,8 @@ import bcrypt from "bcryptjs"
 import prisma from "./lib/prisma"
 import { requestIdMiddleware } from "./lib/requestId"
 import { setLeadStatus } from "./services/lead.service"
+import { enqueue, dispatchDue } from "./services/automation.service"
+import { seedAutomation } from "./lib/automationSeed"
 import { NO_RESPONSE_AGING_DAYS } from "./lib/pipeline"
 
 import authRoutes from "./routes/auth"
@@ -90,11 +92,30 @@ cron.schedule("0 0 * * *", async () => {
     })
     for (const lead of staleLeads) {
       await setLeadStatus(lead.id, "NO_RESPONSE", undefined, { system: true })
+      await enqueue("NO_RESPONSE_NUDGE", {
+        leadId: lead.id,
+        entityType: "LEAD",
+        entityId: lead.id,
+        baseTime: new Date(),
+        parentName: lead.fullName
+      })
     }
   } catch (err) {
     console.error("Cron job error:", err)
   }
 })
+
+// Automation dispatch tick: drain the ScheduledMessage outbox every 5 minutes.
+// Gated by AUTOMATION_ENABLED; independent of the daily job above.
+if (process.env.AUTOMATION_ENABLED === "true") {
+  cron.schedule("*/5 * * * *", async () => {
+    try {
+      await dispatchDue()
+    } catch (err) {
+      console.error("Automation dispatch error:", err)
+    }
+  })
+}
 
 // Seed admin user on startup
 async function seedAdmin() {
@@ -116,12 +137,13 @@ async function seedAdmin() {
 const PORT = 4000
 
 seedAdmin()
+  .then(() => seedAutomation())
   .then(() => {
     app.listen(PORT, () => {
       console.log(`Server running on http://localhost:${PORT}`)
     })
   })
   .catch((err) => {
-    console.error("Failed to seed admin:", err)
+    console.error("Failed to seed:", err)
     process.exit(1)
   })

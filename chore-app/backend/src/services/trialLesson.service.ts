@@ -3,6 +3,7 @@ import { setLeadStatus } from "./lead.service"
 import { FOLLOW_UP_AFTER_TRIAL_DELAY_DAYS } from "../lib/pipeline"
 import { logActivity } from "./activityLog.service"
 import { createNotification } from "./notification.service"
+import { enqueue, cancelForEntity } from "./automation.service"
 
 function addDays(base: Date, days: number): Date {
   return new Date(base.getTime() + days * 24 * 60 * 60 * 1000)
@@ -76,11 +77,29 @@ export async function createTrialLesson(data: CreateTrialData, performedById: nu
     )
   }
 
+  // Automation: immediate confirmation + a reminder 24h before the trial
+  await enqueue("TRIAL_CONFIRMATION", {
+    leadId: data.leadId,
+    entityType: "TRIAL_LESSON",
+    entityId: trial.id,
+    baseTime: new Date(),
+    parentName: trial.lead.fullName,
+    scheduledAt: trial.scheduledAt
+  })
+  await enqueue("TRIAL_REMINDER", {
+    leadId: data.leadId,
+    entityType: "TRIAL_LESSON",
+    entityId: trial.id,
+    baseTime: trial.scheduledAt,
+    parentName: trial.lead.fullName,
+    scheduledAt: trial.scheduledAt
+  })
+
   return trial
 }
 
 export async function updateTrialLesson(id: number, data: Partial<CreateTrialData>) {
-  return prisma.trialLesson.update({
+  const trial = await prisma.trialLesson.update({
     where: { id },
     data: {
       ...(data.groupId !== undefined && { groupId: data.groupId }),
@@ -94,6 +113,28 @@ export async function updateTrialLesson(id: number, data: Partial<CreateTrialDat
       teacher: { select: { name: true } }
     }
   })
+
+  // Reschedule: refresh the pending confirmation/reminder dueAt in place (idempotent by dedupeKey)
+  if (data.scheduledAt) {
+    await enqueue("TRIAL_CONFIRMATION", {
+      leadId: trial.leadId,
+      entityType: "TRIAL_LESSON",
+      entityId: id,
+      baseTime: new Date(),
+      parentName: trial.lead.fullName,
+      scheduledAt: trial.scheduledAt
+    })
+    await enqueue("TRIAL_REMINDER", {
+      leadId: trial.leadId,
+      entityType: "TRIAL_LESSON",
+      entityId: id,
+      baseTime: trial.scheduledAt,
+      parentName: trial.lead.fullName,
+      scheduledAt: trial.scheduledAt
+    })
+  }
+
+  return trial
 }
 
 export async function updateTrialStatus(
@@ -105,7 +146,7 @@ export async function updateTrialStatus(
   const trial = await prisma.trialLesson.update({
     where: { id },
     data: { status, outcome },
-    include: { lead: { select: { id: true, fullName: true, assignedToId: true } } }
+    include: { lead: { select: { id: true, fullName: true, childName: true, assignedToId: true } } }
   })
 
   // Auto-update lead status based on trial outcome
@@ -137,6 +178,17 @@ export async function updateTrialStatus(
       performedById,
       metadata: { outcome }
     })
+
+    // Automation: drop the now-moot confirmation/reminder, enqueue the post-trial follow-up
+    await cancelForEntity("TRIAL_LESSON", id, "TRIAL_COMPLETED")
+    await enqueue("POST_TRIAL_FOLLOW_UP", {
+      leadId: trial.lead.id,
+      entityType: "TRIAL_LESSON",
+      entityId: id,
+      baseTime: new Date(),
+      parentName: trial.lead.fullName,
+      childName: trial.lead.childName ?? undefined
+    })
   } else if (status === "NO_SHOW") {
     // Auto-stage: lead did not show -> NO_RESPONSE + next-day follow-up
     await setLeadStatus(trial.lead.id, "NO_RESPONSE", performedById, { system: true })
@@ -165,6 +217,19 @@ export async function updateTrialStatus(
       leadId: trial.lead.id,
       performedById
     })
+
+    // Automation: no-show owns the re-engagement (suppresses the generic no-response nudge)
+    await cancelForEntity("TRIAL_LESSON", id, "TRIAL_NO_SHOW")
+    await enqueue("TRIAL_NO_SHOW_RESCHEDULE", {
+      leadId: trial.lead.id,
+      entityType: "TRIAL_LESSON",
+      entityId: id,
+      baseTime: new Date(),
+      parentName: trial.lead.fullName
+    })
+  } else if (status === "CANCELLED") {
+    // Automation: cancel any pending confirmation/reminder for this trial
+    await cancelForEntity("TRIAL_LESSON", id, "TRIAL_CANCELLED")
   }
 
   return trial
