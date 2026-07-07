@@ -1,6 +1,6 @@
 # Plan 008: Automation Sequences + Reply-Aware Stops
 
-Status: draft
+Status: done
 Owner: Amit Ohana
 Last updated: 2026-07-07
 
@@ -130,3 +130,12 @@ Manual + type/build (no suite). Run with the dev server stopped for deterministi
 - Fully additive, no schema/migration: revert the seed/registry/hook edits; obsolete seeded rows can be pruned or the disposable `dev.db` reset.
 - Runtime: `AUTOMATION_ENABLED` off halts all sends; per-rule `active=false` disables any single step (e.g., turn off a follow-up) with no deploy.
 - All work on `feat/whatsapp`; `main` untouched; commit/merge only on explicit approval (`versioning-rules.md`).
+
+## Execution Log
+
+### 2026-07-07 — Implemented and validated (mock), committed on `feat/whatsapp` (not merged)
+- Spec `4fede71`. Implementation `bfef8e7` (seed + registry + hooks + docs, single commit).
+- Additive, no schema change: +5 templates / +5 rules; `post_trial_followup` 24h→1h; rule seeding syncs name/template/offset (preserves `active`); new `hasRepliedSince` guard for the follow-up steps.
+- Validation (mock, scripted, 19/19): seed 12 rules/12 templates + offset sync; #1 opener + 24h follow-up (sends w/o reply, cancels on reply, cancels on progress); #2 three-step 0/+24h/+48h (all send, later step cancels on reply); #3 four-message ladder −24h/−1h/−5min (reschedule updates, complete cancels remaining); #4 post-trial at +1h. Backend `tsc` clean.
+- The 5 new templates are editable in the plan-007 template editor (e.g. the Zoom link in `trial_reminder_1h`).
+
