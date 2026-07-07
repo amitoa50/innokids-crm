@@ -1,6 +1,6 @@
 # Plan 006: Automation Monitoring UI (read-only)
 
-Status: draft
+Status: done
 Owner: Amit Ohana
 Last updated: 2026-07-07
 
@@ -115,3 +115,10 @@ Manual + type/build (no automated suite, per `testing-rules.md`).
 - Fully additive and read-only: no schema, migration, seed, or engine change.
 - Revert by removing the route mount + `routes/automation.ts`, the page, and the nav/route entries; `StatusBadge`/`badge.css` additions are harmless if left.
 - All work on `feat/whatsapp`; `main` untouched; commit/merge only on explicit approval (`versioning-rules.md`).
+
+## Execution Log
+
+### 2026-07-07 — Implemented and validated (mock), committed on `feat/whatsapp` (not merged)
+- Spec `dd81229`. Step 1 (docs) + Step 2 (admin read route `routes/automation.ts` + mount) in `e4fec21`. Steps 3–6 (types, `StatusBadge`/`badge.css` `SENT/SENDING/FAILED`, `Automation.tsx`, `/automation` route + `isAdmin` nav) in `42e3fea`.
+- Validation: `GET /rule` (admin) → 7 rules; `GET /scheduled-message` → `{ counts, items }` with a live PENDING `LEAD_WELCOME` (lead join + `dedupeKey`-derived `triggerEvent`); status filter + counts; STAFF → `403`; backend `tsc` and frontend `tsc` + `vite build` clean; browser-reviewed and accepted.
+- Controls (toggle/retry/cancel) remain the next slice; template content editing is [plan 007](007-2026-07-07-automation-template-editor.md).
