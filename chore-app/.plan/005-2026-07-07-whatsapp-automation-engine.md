@@ -1,6 +1,6 @@
 # Plan 005: WhatsApp Automation Engine (Phase 2b)
 
-Status: draft
+Status: active
 Owner: Amit Ohana
 Last updated: 2026-07-07
 
@@ -151,3 +151,15 @@ Manual + type/build (no automated suite, per `testing-rules.md`); freeze/overrid
 - All work on `feat/whatsapp`; `main` untouched; commit/merge only on explicit approval (`versioning-rules.md`).
 - Additive migration: revert the schema additions + drop the `automation-engine` migration, or reset the disposable `dev.db`.
 - Runtime kill switch: `AUTOMATION_ENABLED` unset → dispatch tick no-ops; `AutomationRule.active=false` halts individual rules with no deploy. Enqueue hooks are guarded so manual actions are unaffected when the engine is dormant.
+
+## Execution Log
+
+### 2026-07-07 — Engine implemented and #3 proof validated (mock)
+Branch `feat/whatsapp`. Not merged.
+
+- Steps 1–3 (docs, `AUTOMATION_ENABLED`, additive migration `automation-engine`) committed in `09f7924`.
+- Steps 4–9 (registry, `automation.service`, `automationSeed`, event hooks, 5-minute dispatch tick) committed in `4d4f169`.
+- Seeds 7 templates + 7 rules on startup (`APPROVED` under mock). Outbox drained every 5 minutes when `AUTOMATION_ENABLED=true`.
+- Validation (mock, scripted, 14/14): consent-default, `LEAD_WELCOME` enqueue, trial confirmation + reminder enqueue, reminder `dueAt = scheduledAt − 24h`, both `SENT` + `messageId` linked, 2 outbound messages logged, dispatch idempotent, reschedule updates the single reminder row in place, guard cancels when trial not `SCHEDULED`, no approved template → `FAILED NO_APPROVED_TEMPLATE`, consent revoked → `CANCELLED CONSENT_REVOKED`. Backend `tsc` clean.
+
+**Remaining:** explicit end-to-end validation of automations #1/#2/#4/#5/#6 (wired through the same enqueue→dispatch path; #1 exercised); an operator UI for rules/outbox (separate plan); live Meta cutover (external readiness). Group fan-out (#7) and multi-step sequences remain deferred by design.
