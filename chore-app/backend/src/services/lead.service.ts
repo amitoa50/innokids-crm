@@ -128,13 +128,15 @@ export async function createLead(data: CreateLeadData, performedById?: number) {
   // A parent who messages us first already has an open window handled by staff;
   // only outbound-source leads get the automated opening message.
   if (lead.source !== "WHATSAPP") {
-    await enqueue("LEAD_WELCOME", {
+    const welcomeCtx = {
       leadId: lead.id,
       entityType: "LEAD",
       entityId: lead.id,
       baseTime: new Date(),
       parentName: lead.fullName
-    })
+    }
+    await enqueue("LEAD_WELCOME", welcomeCtx)
+    await enqueue("LEAD_WELCOME_FOLLOWUP", welcomeCtx)
   }
 
   return { lead, action: "SUCCESS" as const }

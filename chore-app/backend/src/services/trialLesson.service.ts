@@ -94,6 +94,22 @@ export async function createTrialLesson(data: CreateTrialData, performedById: nu
     parentName: trial.lead.fullName,
     scheduledAt: trial.scheduledAt
   })
+  await enqueue("TRIAL_REMINDER_1H", {
+    leadId: data.leadId,
+    entityType: "TRIAL_LESSON",
+    entityId: trial.id,
+    baseTime: trial.scheduledAt,
+    parentName: trial.lead.fullName,
+    scheduledAt: trial.scheduledAt
+  })
+  await enqueue("TRIAL_JOIN_NOW", {
+    leadId: data.leadId,
+    entityType: "TRIAL_LESSON",
+    entityId: trial.id,
+    baseTime: trial.scheduledAt,
+    parentName: trial.lead.fullName,
+    scheduledAt: trial.scheduledAt
+  })
 
   return trial
 }
@@ -125,6 +141,22 @@ export async function updateTrialLesson(id: number, data: Partial<CreateTrialDat
       scheduledAt: trial.scheduledAt
     })
     await enqueue("TRIAL_REMINDER", {
+      leadId: trial.leadId,
+      entityType: "TRIAL_LESSON",
+      entityId: id,
+      baseTime: trial.scheduledAt,
+      parentName: trial.lead.fullName,
+      scheduledAt: trial.scheduledAt
+    })
+    await enqueue("TRIAL_REMINDER_1H", {
+      leadId: trial.leadId,
+      entityType: "TRIAL_LESSON",
+      entityId: id,
+      baseTime: trial.scheduledAt,
+      parentName: trial.lead.fullName,
+      scheduledAt: trial.scheduledAt
+    })
+    await enqueue("TRIAL_JOIN_NOW", {
       leadId: trial.leadId,
       entityType: "TRIAL_LESSON",
       entityId: id,

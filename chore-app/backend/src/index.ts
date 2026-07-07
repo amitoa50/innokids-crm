@@ -94,13 +94,16 @@ cron.schedule("0 0 * * *", async () => {
     })
     for (const lead of staleLeads) {
       await setLeadStatus(lead.id, "NO_RESPONSE", undefined, { system: true })
-      await enqueue("NO_RESPONSE_NUDGE", {
+      const nudgeCtx = {
         leadId: lead.id,
         entityType: "LEAD",
         entityId: lead.id,
         baseTime: new Date(),
         parentName: lead.fullName
-      })
+      }
+      await enqueue("NO_RESPONSE_NUDGE", nudgeCtx)
+      await enqueue("NO_RESPONSE_NUDGE_2", nudgeCtx)
+      await enqueue("NO_RESPONSE_NUDGE_3", nudgeCtx)
     }
   } catch (err) {
     console.error("Cron job error:", err)

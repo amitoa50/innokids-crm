@@ -30,6 +30,15 @@ function fmtTime(d?: Date): string {
   return d ? new Date(d).toLocaleTimeString("he-IL", { hour: "2-digit", minute: "2-digit" }) : ""
 }
 
+// True if the parent sent an inbound WhatsApp message after the given time —
+// the "reply" signal that stops the welcome / no-response follow-up steps.
+async function hasRepliedSince(leadId: number, since: Date): Promise<boolean> {
+  const count = await prisma.message.count({
+    where: { direction: "INBOUND", channel: "WHATSAPP", conversation: { leadId }, createdAt: { gt: since } }
+  })
+  return count > 0
+}
+
 // Per-trigger variable resolution (at enqueue) and stop-condition re-check (at dispatch).
 export const registry: Record<string, RuleDef> = {
   LEAD_WELCOME: {
@@ -88,6 +97,50 @@ export const registry: Record<string, RuleDef> = {
     guard: async (row) => {
       const student = await prisma.student.findUnique({ where: { id: row.entityId ?? -1 } })
       return student ? { ok: true } : { ok: false, reason: "STUDENT_NOT_FOUND" }
+    }
+  },
+  // New-lead follow-up (step 2): send only if the lead hasn't replied or progressed.
+  LEAD_WELCOME_FOLLOWUP: {
+    resolveVariables: (ctx) => [ctx.parentName],
+    guard: async (row, lead) => {
+      if (lead.status !== "NEW" && lead.status !== "CONTACTED") return { ok: false, reason: "LEAD_PROGRESSED" }
+      if (await hasRepliedSince(row.leadId, row.createdAt)) return { ok: false, reason: "REPLIED" }
+      return { ok: true }
+    }
+  },
+  // No-response sequence steps 2 & 3: stop on reply or once the lead leaves NO_RESPONSE.
+  NO_RESPONSE_NUDGE_2: {
+    resolveVariables: (ctx) => [ctx.parentName],
+    guard: async (row, lead) => {
+      if (lead.status !== "NO_RESPONSE") return { ok: false, reason: "NOT_NO_RESPONSE" }
+      if (await hasRepliedSince(row.leadId, row.createdAt)) return { ok: false, reason: "REPLIED" }
+      return { ok: true }
+    }
+  },
+  NO_RESPONSE_NUDGE_3: {
+    resolveVariables: (ctx) => [ctx.parentName],
+    guard: async (row, lead) => {
+      if (lead.status !== "NO_RESPONSE") return { ok: false, reason: "NOT_NO_RESPONSE" }
+      if (await hasRepliedSince(row.leadId, row.createdAt)) return { ok: false, reason: "REPLIED" }
+      return { ok: true }
+    }
+  },
+  // Trial reminder 1h before — carries the (editable) Zoom link in its template text.
+  TRIAL_REMINDER_1H: {
+    resolveVariables: (ctx) => [ctx.parentName, fmtTime(ctx.scheduledAt)],
+    guard: async (row) => {
+      const trial = await prisma.trialLesson.findUnique({ where: { id: row.entityId ?? -1 } })
+      if (!trial || trial.status !== "SCHEDULED") return { ok: false, reason: "TRIAL_NOT_SCHEDULED" }
+      if (trial.scheduledAt <= new Date()) return { ok: false, reason: "TRIAL_PASSED" }
+      return { ok: true }
+    }
+  },
+  // "You can join now" ~5 min before — no future check so it still fires around start.
+  TRIAL_JOIN_NOW: {
+    resolveVariables: (ctx) => [ctx.parentName],
+    guard: async (row) => {
+      const trial = await prisma.trialLesson.findUnique({ where: { id: row.entityId ?? -1 } })
+      return trial && trial.status === "SCHEDULED" ? { ok: true } : { ok: false, reason: "TRIAL_NOT_SCHEDULED" }
     }
   }
 }

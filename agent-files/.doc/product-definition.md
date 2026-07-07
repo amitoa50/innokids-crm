@@ -57,12 +57,16 @@ The CRM is the single source of truth and the hub that all channels connect into
 	- Child fields on the lead for sales UX (carried to student on convert)
 	- Group capacity enforcement on assignment and conversion
 	- Calendar-readiness fields on groups and trial lessons
+- In scope (Phase 2 — WhatsApp messaging + automation, plans 004–008):
+	- WhatsApp adapter: inbound webhook, consent/window-gated outbound, delivery/read status; provider-agnostic (mock + Meta Cloud API)
+	- Automation engine: event-enqueued outbox dispatched by a 5-minute cron; admin monitoring + template-content editor
+	- Reply-aware automation sequences: new-lead opener + 24h follow-up; no-response 3-step (0 / +24h / +48h); trial ladder (confirm + −24h / −1h / −5min "join now"); post-trial follow-up at +1h; no-show reschedule; student welcome — follow-ups stop on a WhatsApp reply or lead progress
 - Integration Roadmap (Phase 2+, adapters over the hardened core):
 	- WhatsApp Business API — outbound send, inbound receive, delivery status, template messages (Phase 2)
 	- Meta / Instagram lead ads — native webhook verification (hub.verify_token + X-Hub-Signature-256), leadgen_id idempotency
 	- Website forms / landing pages — inbound submissions over the existing webhook layer
 	- Calendar integration — two-way Google Calendar sync for trials, follow-ups, and group sessions via external-reference event IDs
-	- Automation engine / trigger-based flows (later phase)
+	- Automation engine / trigger-based flows — delivered in Phase 2b (plans 005–008); future: visual rule builder, more channels
 - Out of scope:
 	- Advanced analytics and reporting (later phase)
 	- Kanban board view for leads (deferred)
