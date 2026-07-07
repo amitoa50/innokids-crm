@@ -15,7 +15,7 @@
 ## WhatsApp / Automation (Phase 2)
 - `MessageTemplate` — approved WhatsApp templates; `name` unique; `status` gates sends (only APPROVED may be sent).
 - `AutomationRule` — trigger→template mapping with `offsetMinutes` timing; `active` flag halts a rule without a deploy.
-- `ScheduledMessage` — automation outbox; `@@index([status, dueAt])` for cron dispatch; `messageId` unique links the sent `Message`.
+- `ScheduledMessage` — automation outbox; `@@index([status, dueAt])` for cron dispatch; `messageId` unique links the sent `Message`; `dedupeKey` unique for idempotent enqueue; `entityType`/`entityId` (`@@index`) reference the triggering entity for dispatch-time re-checks and cancellation; `status` values `PENDING`, `SENDING`, `SENT`, `FAILED`, `CANCELLED` (`SENDING` is a transient claim guarding overlapping 5-minute dispatch ticks).
 - Provider secrets (`WHATSAPP_*`) live in `.env` only, never in the database or committed.
 
 ## External Reference and Idempotency

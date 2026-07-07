@@ -16,7 +16,7 @@ INNOKIDS CRM is an internal operating system for a coding school for kids and te
 - **Pipeline engine** — application-level allowed-transition map (`lib/pipeline.ts`) enforced in `lead.service`; system/auto transitions use the same validated setter.
 - **Middleware** — JWT auth with role guards, API key validation for webhooks, requestId generation
 - **Prisma ORM** — data access layer with SQLite database
-- **Cron** — daily overdue follow-up check + auto-stage advancement (post-trial → FOLLOW_UP_AFTER_TRIAL, stale leads → NO_RESPONSE) via node-cron
+- **Cron** — two node-cron schedules: (1) a daily 00:00 overdue follow-up check + auto-stage advancement (post-trial → FOLLOW_UP_AFTER_TRIAL, stale leads → NO_RESPONSE); (2) a 5-minute automation dispatch tick draining the `ScheduledMessage` outbox (Phase 2b), gated by `AUTOMATION_ENABLED`
 - **Email** — optional Gmail SMTP via Nodemailer
 
 ### Frontend (React 18 + TypeScript + Vite, port 5173)
@@ -36,7 +36,7 @@ INNOKIDS CRM is an internal operating system for a coding school for kids and te
 - Provider-agnostic `WhatsAppProvider` interface with concrete adapters: `cloudApi` (Meta Cloud API, default), `mock` (local dev, no external calls); `twilio`/`360dialog` reserved. Selected by `WHATSAPP_PROVIDER` env.
 - Inbound webhook (`/api/whatsapp/webhook`): GET verify challenge, POST signature-validated (`X-Hub-Signature-256` over the raw body). Inbound messages auto-link to a lead by normalized phone (create if unknown), open the 24h service window, and log to the conversation. Status callbacks update `Message.status`. Idempotency via `ExternalRef` on the provider message id.
 - Outbound send (`send.service`): consent-gated; session message inside the window, approved template outside it; provider message id stored via `ExternalRef`.
-- Automation (Phase 2b): `AutomationRule` → `ScheduledMessage` outbox dispatched by the daily cron; `MessageTemplate` registry mirrors provider-approved templates.
+- Automation (Phase 2b, `automation.service`): pipeline events enqueue `AutomationRule`-driven `ScheduledMessage` rows (idempotent via `dedupeKey`) into an outbox drained by the 5-minute cron tick. Every send re-checks consent/window/template-approval and per-rule stop conditions at dispatch time, is template-only, and is audited in `ActivityLog`; a transient `SENDING` claim guards overlapping ticks. `MessageTemplate` registry mirrors provider-approved templates (seeded `APPROVED` in mock only).
 
 ## Data Flow
 
@@ -108,6 +108,7 @@ Channel notes:
 - 2026-07-04: Initial architecture for INNOKIDS CRM Core (Phase 1)
 - 2026-07-06: CRM data-model hardening (plan 003) — added communication spine (Conversation, Message), ExternalRef map, consent fields, pipeline transition engine, auto-stage logic, group capacity enforcement, calendar-readiness fields; added Integration Architecture section
 - 2026-07-06: WhatsApp Phase 2a (plan 004) — provider-agnostic WhatsApp adapter (Cloud API + mock), inbound webhook with auto-link + service window, consent-gated outbound send, status callbacks, ExternalRef idempotency; added MessageTemplate/AutomationRule/ScheduledMessage models (automation engine wiring is Phase 2b)
+- 2026-07-07: WhatsApp automation engine (plan 005) — event-driven enqueue hooks + `ScheduledMessage` outbox dispatched by a 5-minute cron tick; six seeded automations, dispatch-time stop-condition re-checks, `AUTOMATION_ENABLED` kill switch; `ScheduledMessage` gains `dedupeKey`/`entityType`/`entityId`/`SENDING` status (additive migration `automation-engine`); group fan-out and multi-step sequences deferred
 
 ## Update Triggers
 - Update this file when API routes, auth boundaries, or major component ownership changes.

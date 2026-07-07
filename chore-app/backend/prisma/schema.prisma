@@ -249,7 +249,7 @@ model MessageTemplate {
 model AutomationRule {
   id           Int      @id @default(autoincrement())
   name         String
-  triggerEvent String   // TRIAL_REMINDER, POST_TRIAL_FOLLOW_UP, NO_RESPONSE_NUDGE
+  triggerEvent String   // LEAD_WELCOME, NO_RESPONSE_NUDGE, TRIAL_CONFIRMATION, TRIAL_REMINDER, POST_TRIAL_FOLLOW_UP, TRIAL_NO_SHOW_RESCHEDULE, STUDENT_WELCOME (GROUP_FIRST_LESSON reserved)
   templateName String
   channel      String   @default("WHATSAPP")
   offsetMinutes Int     @default(0) // relative to the trigger event time (negative = before)
@@ -265,8 +265,11 @@ model ScheduledMessage {
   templateName  String
   variables     String?   // JSON string
   dueAt         DateTime
-  status        String    @default("PENDING") // PENDING, SENT, CANCELLED, FAILED
+  status        String    @default("PENDING") // PENDING, SENDING, SENT, CANCELLED, FAILED (SENDING = transient dispatch claim)
   failureReason String?
+  dedupeKey     String?   @unique // "<triggerEvent>:<entityType>:<entityId>" — idempotent enqueue
+  entityType    String?   // LEAD, TRIAL_LESSON, STUDENT — triggering entity for dispatch-time re-checks
+  entityId      Int?
   messageId     Int?      @unique
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -275,4 +278,5 @@ model ScheduledMessage {
   message Message? @relation(fields: [messageId], references: [id])
 
   @@index([status, dueAt])
+  @@index([entityType, entityId])
 }

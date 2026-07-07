@@ -64,6 +64,9 @@
 - `scheduled-message`
 	- Canonical meaning: an automation outbox row dispatched by cron when due; the queue between an automation rule and an actual send.
 	- Use: singular in code (`scheduledMessage`).
+- `automation-outbox`
+	- Canonical meaning: the set of `PENDING` `scheduled-message` rows awaiting dispatch by the 5-minute automation cron tick.
+	- Use: informal collective term for the `ScheduledMessage` queue; not a separate entity or route.
 
 ## Naming Alignment
 - Keep this glossary aligned with naming decisions in `../.rule/naming-rules.md`.
