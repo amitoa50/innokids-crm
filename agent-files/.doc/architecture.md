@@ -110,6 +110,7 @@ Channel notes:
 - 2026-07-06: WhatsApp Phase 2a (plan 004) — provider-agnostic WhatsApp adapter (Cloud API + mock), inbound webhook with auto-link + service window, consent-gated outbound send, status callbacks, ExternalRef idempotency; added MessageTemplate/AutomationRule/ScheduledMessage models (automation engine wiring is Phase 2b)
 - 2026-07-07: WhatsApp automation engine (plan 005) — event-driven enqueue hooks + `ScheduledMessage` outbox dispatched by a 5-minute cron tick; six seeded automations, dispatch-time stop-condition re-checks, `AUTOMATION_ENABLED` kill switch; `ScheduledMessage` gains `dedupeKey`/`entityType`/`entityId`/`SENDING` status (additive migration `automation-engine`); group fan-out and multi-step sequences deferred
 - 2026-07-07: Automation monitoring UI (plan 006) — admin-only read-only `/api/automation` route (list rules, list outbox with per-status counts) + `Automation` page; no engine/schema change
+- 2026-07-07: Automation template editor (plan 007) — admin template content layer on `/api/automation` (`GET /template` with usage, `PUT /template/:id` body edit, placeholder-validated) + Templates section/editor modal on the `Automation` page; edits `MessageTemplate.body` only, no engine/rule change; forward-compatible with Meta template approval (`status` preserved)
 
 ## Update Triggers
 - Update this file when API routes, auth boundaries, or major component ownership changes.

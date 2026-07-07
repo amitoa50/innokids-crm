@@ -155,7 +155,7 @@ All routes use singular entity names. Error responses follow shape: `{ error: { 
 | `/api/user` | Team management (admin only) |
 | `/api/notification` | In-app notifications |
 | `/api/whatsapp` | WhatsApp webhook (verify + inbound + status callbacks); provider-verified, not JWT |
-| `/api/automation` | Read-only automation monitoring (admin only): list rules, list `ScheduledMessage` outbox with per-status counts |
+| `/api/automation` | Automation monitoring + template content (admin only): list rules, list `ScheduledMessage` outbox with per-status counts, read `MessageTemplate`s with usage, edit template body |
 
 ---
 
