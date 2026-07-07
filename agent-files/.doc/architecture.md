@@ -9,7 +9,7 @@ INNOKIDS CRM is an internal operating system for a coding school for kids and te
 ## Primary Components
 
 ### Backend (Express + TypeScript, port 4000)
-- **Routes layer** — RESTful API endpoints for each entity (lead, student, group, trial-lesson, task, report, lead-intake, user, notification, auth)
+- **Routes layer** — RESTful API endpoints for each entity (lead, student, group, trial-lesson, task, report, lead-intake, user, notification, auth, automation)
 - **Services layer** — business logic (dedup, conversion, activity logging, phone normalization, source normalizers, communication logging, external-ref mapping, group capacity)
 - **Communication spine** — channel-agnostic conversation + message model; parent contact history per lead/student. WhatsApp and other channels attach as adapters over this spine (Phase 2+).
 - **External-reference map** — links internal entities to external-system IDs (Meta, Instagram, website, WhatsApp, Google Calendar) for intake idempotency and future two-way sync.
@@ -20,7 +20,7 @@ INNOKIDS CRM is an internal operating system for a coding school for kids and te
 - **Email** — optional Gmail SMTP via Nodemailer
 
 ### Frontend (React 18 + TypeScript + Vite, port 5173)
-- **Pages** — Dashboard, Leads, LeadDetails, Tasks, TrialLessons, Calendar, Students, StudentDetails, Groups, Team, Login
+- **Pages** — Dashboard, Leads, LeadDetails, Tasks, TrialLessons, Calendar, Students, StudentDetails, Groups, Team, Automation (admin, read-only automation monitor), Login
 - **Components** — modals (LeadModal, TaskModal, etc.), StatusBadge, ActivityTimeline, ConfirmDialog, NotificationBell, Layout
 - **State** — TanStack Query v5 for server state, react-hook-form for forms
 - **Styling** — Tailwind CSS v4 + CSS custom properties for design tokens
@@ -87,7 +87,7 @@ Channel notes:
 - **API key** — `/api/lead-intake/webhook/:source`
 - **Provider-verified** — `/api/whatsapp/webhook` (verify token + `X-Hub-Signature-256`, not JWT)
 - **Authenticated (All roles)** — all other endpoints
-- **Admin only** — user management (`/api/user`), staff performance reports, group creation
+- **Admin only** — user management (`/api/user`), staff performance reports, group creation, automation monitoring (`/api/automation`)
 - Roles: ADMIN (full access), STAFF (operational, no settings)
 - Future: TEACHER role (V2)
 
@@ -109,6 +109,7 @@ Channel notes:
 - 2026-07-06: CRM data-model hardening (plan 003) — added communication spine (Conversation, Message), ExternalRef map, consent fields, pipeline transition engine, auto-stage logic, group capacity enforcement, calendar-readiness fields; added Integration Architecture section
 - 2026-07-06: WhatsApp Phase 2a (plan 004) — provider-agnostic WhatsApp adapter (Cloud API + mock), inbound webhook with auto-link + service window, consent-gated outbound send, status callbacks, ExternalRef idempotency; added MessageTemplate/AutomationRule/ScheduledMessage models (automation engine wiring is Phase 2b)
 - 2026-07-07: WhatsApp automation engine (plan 005) — event-driven enqueue hooks + `ScheduledMessage` outbox dispatched by a 5-minute cron tick; six seeded automations, dispatch-time stop-condition re-checks, `AUTOMATION_ENABLED` kill switch; `ScheduledMessage` gains `dedupeKey`/`entityType`/`entityId`/`SENDING` status (additive migration `automation-engine`); group fan-out and multi-step sequences deferred
+- 2026-07-07: Automation monitoring UI (plan 006) — admin-only read-only `/api/automation` route (list rules, list outbox with per-status counts) + `Automation` page; no engine/schema change
 
 ## Update Triggers
 - Update this file when API routes, auth boundaries, or major component ownership changes.

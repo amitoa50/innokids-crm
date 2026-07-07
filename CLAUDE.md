@@ -96,6 +96,7 @@ chore-app/
         StudentDetails.tsx      # Student detail view
         Groups.tsx              # Group cards
         Team.tsx                # Admin: manage staff
+        Automation.tsx          # Admin: read-only automation rules + outbox monitor
       components/
         Layout.tsx              # Sidebar nav + header
         NotificationBell.tsx    # Polls every 30s
@@ -154,6 +155,7 @@ All routes use singular entity names. Error responses follow shape: `{ error: { 
 | `/api/user` | Team management (admin only) |
 | `/api/notification` | In-app notifications |
 | `/api/whatsapp` | WhatsApp webhook (verify + inbound + status callbacks); provider-verified, not JWT |
+| `/api/automation` | Read-only automation monitoring (admin only): list rules, list `ScheduledMessage` outbox with per-status counts |
 
 ---
 

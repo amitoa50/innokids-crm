@@ -23,6 +23,7 @@ import reportRoutes from "./routes/report"
 import userRoutes from "./routes/user"
 import notificationRoutes from "./routes/notification"
 import whatsappRoutes from "./routes/whatsapp"
+import automationRoutes from "./routes/automation"
 
 const app = express()
 
@@ -41,6 +42,7 @@ app.use("/api/report", reportRoutes)
 app.use("/api/user", userRoutes)
 app.use("/api/notification", notificationRoutes)
 app.use("/api/whatsapp", whatsappRoutes)
+app.use("/api/automation", automationRoutes)
 
 // Daily cron job at midnight: check overdue follow-ups and notify staff
 cron.schedule("0 0 * * *", async () => {
