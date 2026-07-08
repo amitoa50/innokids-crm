@@ -187,7 +187,7 @@ npm run preview           # preview production build
 
 ## Key Notes
 
-- **No test suite** — no unit or integration tests exist.
+- **Tests:** backend Vitest suite (`npm test` from `chore-app/backend/`) covers the WhatsApp automation engine (dispatch claiming, guards, reply-aware stops, reschedule/cancel, template-approval failure, consent revocation) against a throwaway SQLite DB + mock provider. No frontend tests.
 - **Default admin credentials (first run):** `admin@office.local` / `admin123` — change after first login.
 - **Email is optional:** if `GMAIL_USER`/`GMAIL_APP_PASSWORD` are unset, email is silently skipped; in-app notifications still work.
 - **Webhook API key:** set `WEBHOOK_API_KEY` in `.env` for lead intake security.
