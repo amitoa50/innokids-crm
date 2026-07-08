@@ -1,8 +1,8 @@
 # Plan 007: Automation Template Editor (content layer)
 
-Status: draft
+Status: done
 Owner: Amit Ohana
-Last updated: 2026-07-07
+Last updated: 2026-07-08
 
 Builds on [plan 005](005-2026-07-07-whatsapp-automation-engine.md) (engine) and [plan 006](006-2026-07-07-automation-monitoring-ui.md) (monitoring UI). Adds an admin content-management layer to edit the WhatsApp message text of each automation template inside the CRM. No rule editing, no engine change.
 
@@ -94,3 +94,11 @@ Manual + type/build (no automated suite, per `testing-rules.md`).
 - Fully additive: no schema, migration, seed, or engine change; edits only touch `MessageTemplate.body` (re-seedable / disposable `dev.db`).
 - Revert by removing the two template endpoints and the Templates section + editor modal.
 - All work on `feat/whatsapp`; `main` untouched; commit/merge only on explicit approval (`versioning-rules.md`).
+
+## Execution Log
+
+### 2026-07-07 — Implemented and validated (mock), committed on `feat/whatsapp`
+- Backend template read + body-edit API (`GET /api/automation/template`, `PUT /api/automation/template/:id` with placeholder-range validation, `status` preserved) in commit `8a9a7c7`.
+- Templates section + editor modal (owning automation, placeholder palette, live sample preview) on the Automation page in commit `4924f61`.
+- Validated per the Validation list: admin read/edit round-trip renders the edited text on the next mock dispatch; STAFF → `403`; out-of-range placeholder and empty body → `400` with `requestId`; backend/frontend `tsc` + `vite build` clean; browser check of palette, preview, and save.
+- Plan 008 built on this editor (its 5 new templates are editable here). Status not flipped to `done` at the time — corrected 2026-07-08 as part of [plan 009](009-2026-07-08-pre-cutover-hardening.md).

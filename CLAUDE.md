@@ -187,8 +187,8 @@ npm run preview           # preview production build
 
 ## Key Notes
 
-- **No test suite** — no unit or integration tests exist.
-- **Default admin credentials (first run):** `admin@office.local` / `admin123` — change after first login.
+- **Tests:** backend Vitest suite (`npm test` from `chore-app/backend/`) covers the WhatsApp automation engine (dispatch claiming, guards, reply-aware stops, reschedule/cancel, template-approval failure, consent revocation) against a throwaway SQLite DB + mock provider. No frontend tests.
+- **Admin seeding:** when the user table is empty, the first admin is created from `ADMIN_EMAIL`/`ADMIN_PASSWORD`. The dev fallback `admin@office.local` / `admin123` is seeded only when `NODE_ENV !== "production"`; production with no env credentials refuses to seed and logs the reason.
 - **Email is optional:** if `GMAIL_USER`/`GMAIL_APP_PASSWORD` are unset, email is silently skipped; in-app notifications still work.
 - **Webhook API key:** set `WEBHOOK_API_KEY` in `.env` for lead intake security.
 - **Phone dedup:** Israeli numbers normalized to +972 format. `phoneNormalized` is the unique dedup key.

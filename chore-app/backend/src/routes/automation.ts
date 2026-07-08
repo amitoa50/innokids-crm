@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express"
 import { authenticate, requireAdmin } from "../middleware/auth"
 import prisma from "../lib/prisma"
+import { updateTemplateBody } from "../services/template.service"
 const router = Router()
 
 router.use(authenticate)
@@ -75,44 +76,15 @@ router.get("/template", async (_req: Request, res: Response) => {
 })
 
 router.put("/template/:id", async (req: Request, res: Response) => {
-  const id = Number(req.params.id)
-  const { body } = req.body
+  const result = await updateTemplateBody(Number(req.params.id), req.body?.body)
 
-  if (typeof body !== "string" || body.trim().length === 0) {
-    res.status(400).json({
-      error: { code: "BAD_REQUEST", message: "Template body is required" },
-      requestId: req.requestId
-    })
+  if ("error" in result) {
+    const status = result.error.code === "NOT_FOUND" ? 404 : 400
+    res.status(status).json({ error: result.error, requestId: req.requestId })
     return
   }
 
-  const template = await prisma.messageTemplate.findUnique({ where: { id } })
-  if (!template) {
-    res.status(404).json({
-      error: { code: "NOT_FOUND", message: "Template not found" },
-      requestId: req.requestId
-    })
-    return
-  }
-
-  // Body may only use placeholders the automation actually fills: {{1}}..{{N}}
-  const variables = template.variables ? (JSON.parse(template.variables) as string[]) : []
-  const maxIndex = variables.length
-  const tokens = body.match(/\{\{[^}]*\}\}/g) || []
-  for (const token of tokens) {
-    const inner = token.replace(/[{}\s]/g, "")
-    const n = Number(inner)
-    if (!/^\d+$/.test(inner) || n < 1 || n > maxIndex) {
-      res.status(400).json({
-        error: { code: "BAD_REQUEST", message: `Invalid placeholder ${token} — allowed range is {{1}}..{{${maxIndex}}}` },
-        requestId: req.requestId
-      })
-      return
-    }
-  }
-
-  const updated = await prisma.messageTemplate.update({ where: { id }, data: { body } })
-  res.json(updated)
+  res.json({ ...result.template, approvalRevoked: result.approvalRevoked })
 })
 
 export default router
