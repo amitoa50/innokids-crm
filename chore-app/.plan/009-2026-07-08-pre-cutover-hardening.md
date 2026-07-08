@@ -1,6 +1,6 @@
 # Plan 009: Pre-Cutover Hardening & Cleanup
 
-Status: active
+Status: done
 Owner: Amit Ohana
 Last updated: 2026-07-08
 
@@ -116,4 +116,11 @@ Make the automation engine regression-protected, drift-safe, documented, and cre
 
 ## Execution Log
 
-_(added as steps complete)_
+### 2026-07-08 — Executed in full on `chore/pre-cutover-hardening` (off `master`, not merged)
+
+- Step 1 (`3fecc19`): this plan + plan 007 marked done with execution log.
+- Step 2 (`cb91bf1`): Vitest harness (throwaway SQLite via `prisma db push`, mock provider, sequential files, full reset + `seedAutomation()` per test) + 15-test engine regression suite; `CLAUDE.md` test note updated. Test DB already covered by the existing `*.db` gitignore.
+- Step 3 (`81c7fe7`): `updateTemplateBody` extracted to `template.service.ts`; `APPROVED` + `cloud` body edit flips status to `DRAFT` and returns `approvalRevoked`; editor modal shows an approved-template notice and a revocation warning toast; 6 service tests.
+- Step 4 (`9ef4c86`): `seedAdmin` moved to `src/lib/adminSeed.ts` — env-credential seed, production refusal of the dev default, dev fallback warning; `.env.example` + `CLAUDE.md` updated; 4 seed tests.
+- Step 5 (`7af1206`): GitHub Actions CI (backend: ci/generate/build/test; frontend: ci/build; Node 22) on push to `master` and PRs.
+- Validation: 25/25 tests green; backend `tsc` and frontend `tsc && vite build` clean; compiled backend boot smoke test OK (seeds 12 templates/12 rules, admin seed no-ops on a populated DB). CI first run pending push.
