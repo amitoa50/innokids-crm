@@ -4,11 +4,11 @@ dotenv.config()
 import express from "express"
 import cors from "cors"
 import cron from "node-cron"
-import bcrypt from "bcryptjs"
 import prisma from "./lib/prisma"
 import { requestIdMiddleware } from "./lib/requestId"
 import { setLeadStatus } from "./services/lead.service"
 import { enqueue, dispatchDue } from "./services/automation.service"
+import { seedAdmin } from "./lib/adminSeed"
 import { seedAutomation } from "./lib/automationSeed"
 import { NO_RESPONSE_AGING_DAYS } from "./lib/pipeline"
 
@@ -120,23 +120,6 @@ if (process.env.AUTOMATION_ENABLED === "true") {
       console.error("Automation dispatch error:", err)
     }
   })
-}
-
-// Seed admin user on startup
-async function seedAdmin() {
-  const userCount = await prisma.user.count()
-  if (userCount === 0) {
-    const hashed = await bcrypt.hash("admin123", 10)
-    await prisma.user.create({
-      data: {
-        email: "admin@office.local",
-        name: "Admin",
-        password: hashed,
-        role: "ADMIN"
-      }
-    })
-    console.log("Seeded default admin user: admin@office.local / admin123")
-  }
 }
 
 const PORT = 4000
