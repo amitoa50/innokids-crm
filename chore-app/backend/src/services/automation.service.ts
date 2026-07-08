@@ -110,6 +110,12 @@ export async function dispatchDue() {
       continue
     }
 
+    // Marketing templates need the explicit marketing opt-in on top of WhatsApp consent
+    if (tpl.category === "MARKETING" && !lead.marketingConsent) {
+      await finalize(row.id, "CANCELLED", "NO_MARKETING_CONSENT")
+      continue
+    }
+
     const variables = row.variables ? (JSON.parse(row.variables) as string[]) : []
     const result = await sendWhatsApp(row.leadId, { templateName: row.templateName, variables })
     if ("error" in result) {

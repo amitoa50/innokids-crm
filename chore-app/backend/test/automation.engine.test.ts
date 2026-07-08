@@ -40,7 +40,7 @@ describe("dispatch claiming", () => {
   })
 
   it("sends a due row exactly once across two dispatch runs", async () => {
-    const lead = await createLead({ status: "NO_RESPONSE" })
+    const lead = await createLead({ status: "NO_RESPONSE", marketingConsent: true })
     const row = await createScheduledRow({
       leadId: lead.id,
       triggerEvent: "NO_RESPONSE_NUDGE",
@@ -147,7 +147,7 @@ describe("dispatch-time guards", () => {
 
 describe("reply-aware stops", () => {
   it("sends the welcome follow-up when the parent has not replied", async () => {
-    const lead = await createLead({ status: "NEW" })
+    const lead = await createLead({ status: "NEW", marketingConsent: true })
     const row = await createScheduledRow({
       leadId: lead.id,
       triggerEvent: "LEAD_WELCOME_FOLLOWUP",
@@ -200,8 +200,8 @@ describe("reply-aware stops", () => {
   })
 
   it("cancels a later no-response nudge on reply but sends it without one", async () => {
-    const replied = await createLead({ status: "NO_RESPONSE" })
-    const silent = await createLead({ status: "NO_RESPONSE" })
+    const replied = await createLead({ status: "NO_RESPONSE", marketingConsent: true })
+    const silent = await createLead({ status: "NO_RESPONSE", marketingConsent: true })
     const repliedRow = await createScheduledRow({
       leadId: replied.id,
       triggerEvent: "NO_RESPONSE_NUDGE_2",
@@ -325,6 +325,60 @@ describe("dispatch safety rails", () => {
     expect(await outboundMessages(lead.id)).toHaveLength(0)
     const notifications = await prisma.notification.findMany({ where: { userId: admin.id } })
     expect(notifications).toHaveLength(1)
+  })
+
+  it("cancels a MARKETING template send when the lead lacks marketing consent", async () => {
+    const lead = await createLead({ status: "NO_RESPONSE", marketingConsent: false })
+    const row = await createScheduledRow({
+      leadId: lead.id,
+      triggerEvent: "NO_RESPONSE_NUDGE",
+      entityType: "LEAD",
+      entityId: lead.id,
+      templateName: "no_response_nudge"
+    })
+
+    await dispatchDue()
+
+    const after = await prisma.scheduledMessage.findUniqueOrThrow({ where: { id: row.id } })
+    expect(after.status).toBe("CANCELLED")
+    expect(after.failureReason).toBe("NO_MARKETING_CONSENT")
+    expect(await outboundMessages(lead.id)).toHaveLength(0)
+  })
+
+  it("sends a MARKETING template when the lead has marketing consent", async () => {
+    const lead = await createLead({ status: "NO_RESPONSE", marketingConsent: true })
+    const row = await createScheduledRow({
+      leadId: lead.id,
+      triggerEvent: "NO_RESPONSE_NUDGE",
+      entityType: "LEAD",
+      entityId: lead.id,
+      templateName: "no_response_nudge"
+    })
+
+    await dispatchDue()
+
+    const after = await prisma.scheduledMessage.findUniqueOrThrow({ where: { id: row.id } })
+    expect(after.status).toBe("SENT")
+    expect(await outboundMessages(lead.id)).toHaveLength(1)
+  })
+
+  it("sends a UTILITY template without marketing consent", async () => {
+    const lead = await createLead({ marketingConsent: false })
+    const trial = await createTrial(lead.id)
+    const row = await createScheduledRow({
+      leadId: lead.id,
+      triggerEvent: "TRIAL_CONFIRMATION",
+      entityType: "TRIAL_LESSON",
+      entityId: trial.id,
+      templateName: "trial_confirmation",
+      variables: ["הורה בדיקה", "1.1.2027", "17:00"]
+    })
+
+    await dispatchDue()
+
+    const after = await prisma.scheduledMessage.findUniqueOrThrow({ where: { id: row.id } })
+    expect(after.status).toBe("SENT")
+    expect(await outboundMessages(lead.id)).toHaveLength(1)
   })
 
   it("cancels the row when consent was revoked before dispatch", async () => {

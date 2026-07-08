@@ -4,6 +4,8 @@ dotenv.config()
 import express from "express"
 import cors from "cors"
 import cron from "node-cron"
+import path from "path"
+import fs from "fs"
 import prisma from "./lib/prisma"
 import { requestIdMiddleware } from "./lib/requestId"
 import { setLeadStatus } from "./services/lead.service"
@@ -27,9 +29,13 @@ import automationRoutes from "./routes/automation"
 
 const app = express()
 
-app.use(cors({ origin: "http://localhost:5173" }))
+app.use(cors({ origin: process.env.CORS_ORIGIN || "http://localhost:5173" }))
 app.use(express.json({ verify: (req, _res, buf) => { (req as express.Request).rawBody = buf } }))
 app.use(requestIdMiddleware)
+
+app.get("/api/health", (req, res) => {
+  res.json({ ok: true, requestId: req.requestId })
+})
 
 app.use("/api/auth", authRoutes)
 app.use("/api/lead", leadRoutes)
@@ -43,6 +49,16 @@ app.use("/api/user", userRoutes)
 app.use("/api/notification", notificationRoutes)
 app.use("/api/whatsapp", whatsappRoutes)
 app.use("/api/automation", automationRoutes)
+
+// Production: serve the built frontend from the same service (relative /api
+// keeps working, no CORS). Skipped in dev, where Vite serves the frontend.
+const frontendDist = path.resolve(__dirname, "../../frontend/dist")
+if (fs.existsSync(frontendDist)) {
+  app.use(express.static(frontendDist))
+  app.get(/^\/(?!api\/).*/, (_req, res) => {
+    res.sendFile(path.join(frontendDist, "index.html"))
+  })
+}
 
 // Daily cron job at midnight: check overdue follow-ups and notify staff
 cron.schedule("0 0 * * *", async () => {
@@ -122,7 +138,7 @@ if (process.env.AUTOMATION_ENABLED === "true") {
   })
 }
 
-const PORT = 4000
+const PORT = Number(process.env.PORT) || 4000
 
 seedAdmin()
   .then(() => seedAutomation())

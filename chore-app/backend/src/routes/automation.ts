@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express"
 import { authenticate, requireAdmin } from "../middleware/auth"
 import prisma from "../lib/prisma"
-import { updateTemplateBody } from "../services/template.service"
+import { updateTemplateBody, updateTemplateStatus } from "../services/template.service"
 const router = Router()
 
 router.use(authenticate)
@@ -85,6 +85,21 @@ router.put("/template/:id", async (req: Request, res: Response) => {
   }
 
   res.json({ ...result.template, approvalRevoked: result.approvalRevoked })
+})
+
+router.put("/template/:id/status", async (req: Request, res: Response) => {
+  const result = await updateTemplateStatus(Number(req.params.id), {
+    status: req.body?.status,
+    category: req.body?.category
+  })
+
+  if ("error" in result) {
+    const status = result.error.code === "NOT_FOUND" ? 404 : 400
+    res.status(status).json({ error: result.error, requestId: req.requestId })
+    return
+  }
+
+  res.json(result.template)
 })
 
 export default router
