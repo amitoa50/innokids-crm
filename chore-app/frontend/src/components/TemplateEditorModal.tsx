@@ -25,8 +25,12 @@ export default function TemplateEditorModal({ template, onClose }: Props) {
 
   const mutation = useMutation({
     mutationFn: async () => client.put(`/automation/template/${template.id}`, { body }),
-    onSuccess: () => {
-      toast.success("התבנית נשמרה")
+    onSuccess: (res: { data?: { approvalRevoked?: boolean } }) => {
+      if (res.data?.approvalRevoked) {
+        toast.warning("התבנית נשמרה וסומנה כטיוטה — נדרש אישור מחדש של מטא לפני שליחה")
+      } else {
+        toast.success("התבנית נשמרה")
+      }
       queryClient.invalidateQueries({ queryKey: ["automation", "template"] })
       onClose()
     },
@@ -72,6 +76,12 @@ export default function TemplateEditorModal({ template, onClose }: Props) {
           <div className="text-sm text-slate-600">
             <span className="text-slate-400">אוטומציה: </span>{owner}
           </div>
+
+          {template.status === "APPROVED" && (
+            <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              תבנית זו מאושרת. שמירת שינוי בנוסח עשויה לדרוש אישור מחדש של מטא לפני שההודעה תישלח שוב.
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">תוכן ההודעה</label>
