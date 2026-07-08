@@ -170,4 +170,12 @@ The status endpoint accepts any of the four values (admin judgment, no rigid tra
 
 ## Execution Log
 
-_(added as phases complete)_
+### 2026-07-08 — Phase C complete on `feat/meta-cutover` (not merged)
+
+- Plan committed with locked designs (`15bdff9`).
+- Marketing-consent dispatch gate per Locked design 1 (`9e7865f`): `MARKETING`-category template + `marketingConsent=false` → `CANCELLED NO_MARKETING_CONSENT`; 3 new tests (blocked / consented / UTILITY unaffected); existing MARKETING-template tests updated to carry consent.
+- Manual Meta approval sync per Locked design 2 (`5472a5f`): `updateTemplateStatus` service + `PUT /api/automation/template/:id/status` (status + optional category); Automation page gains category + approval-status selects with an exact-wording confirm dialog on APPROVED; body-edit guard extended so `PENDING` also resets to `DRAFT` under `cloud`; 6 new tests.
+- Deploy readiness (`3f3adcb`): `PORT`/`CORS_ORIGIN` env-driven, backend serves `frontend/dist` with SPA fallback when present, `GET /api/health`; `.env.example` updated.
+- Validation: 34/34 tests green; backend `tsc` + frontend `tsc && vite build` clean; compiled-boot smoke test — `/api/health` `{ ok: true }`, `/leads` serves the SPA `index.html`, seed intact.
+
+**Next:** Phases A–B are owner actions in the Meta consoles (checklist in this plan). Phases D–F each require explicit approval before any live message, automation enable, or deploy.
