@@ -1,12 +1,26 @@
 import { useState, useEffect } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "react-router-dom"
 import { toast } from "sonner"
 import client from "../api/client"
 import type { AutomationRule, ScheduledMessageList, TemplateWithUsage } from "../types"
 import StatusBadge from "../components/StatusBadge"
 import TemplateEditorModal from "../components/TemplateEditorModal"
+import ConfirmDialog from "../components/ConfirmDialog"
 import { triggerLabel } from "../lib/automationLabels"
+
+const templateStatusLabels: Record<string, string> = {
+  DRAFT: "טיוטה",
+  PENDING: "ממתין לאישור",
+  APPROVED: "מאושר",
+  REJECTED: "נדחה"
+}
+
+const templateCategoryLabels: Record<string, string> = {
+  UTILITY: "שירות",
+  MARKETING: "שיווק",
+  AUTHENTICATION: "אימות"
+}
 
 function hebUnit(n: number, one: string, many: string): string {
   return n === 1 ? one : `${n} ${many}`
@@ -62,6 +76,28 @@ export default function Automation() {
       return data
     }
   })
+
+  // Manual Meta-approval sync: the admin mirrors WhatsApp Manager outcomes here.
+  const queryClient = useQueryClient()
+  const [pendingApprove, setPendingApprove] = useState<TemplateWithUsage | null>(null)
+  const statusMutation = useMutation({
+    mutationFn: async (params: { id: number; status: string; category?: string }) =>
+      client.put(`/automation/template/${params.id}/status`, { status: params.status, category: params.category }),
+    onSuccess: () => {
+      toast.success("סטטוס התבנית עודכן")
+      queryClient.invalidateQueries({ queryKey: ["automation", "template"] })
+      setPendingApprove(null)
+    },
+    onError: () => toast.error("עדכון סטטוס התבנית נכשל")
+  })
+
+  function changeStatus(t: TemplateWithUsage, status: string) {
+    if (status === "APPROVED") {
+      setPendingApprove(t)
+      return
+    }
+    statusMutation.mutate({ id: t.id, status })
+  }
 
   useEffect(() => {
     if (rules.isError || outbox.isError || templates.isError) toast.error("טעינת האוטומציות נכשלה")
@@ -120,14 +156,16 @@ export default function Automation() {
                 <th className="px-4 py-3 font-medium">תבנית</th>
                 <th className="px-4 py-3 font-medium">אוטומציה</th>
                 <th className="px-4 py-3 font-medium">תוכן</th>
+                <th className="px-4 py-3 font-medium">קטגוריה</th>
+                <th className="px-4 py-3 font-medium">אישור מטא</th>
                 <th className="px-4 py-3 font-medium"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {templates.isLoading ? (
-                <tr><td colSpan={4} className="px-4 py-6 text-center text-slate-400">טוען...</td></tr>
+                <tr><td colSpan={6} className="px-4 py-6 text-center text-slate-400">טוען...</td></tr>
               ) : (templates.data?.length ?? 0) === 0 ? (
-                <tr><td colSpan={4} className="px-4 py-6 text-center text-slate-400">אין תבניות</td></tr>
+                <tr><td colSpan={6} className="px-4 py-6 text-center text-slate-400">אין תבניות</td></tr>
               ) : (
                 templates.data!.map((t) => (
                   <tr key={t.id} className="text-slate-700">
@@ -135,6 +173,30 @@ export default function Automation() {
                     <td className="px-4 py-3 text-slate-500">{t.usedBy.map((u) => triggerLabel(u.triggerEvent)).join(", ") || "—"}</td>
                     <td className="px-4 py-3">
                       <div className="max-w-md overflow-hidden text-ellipsis whitespace-nowrap text-slate-500">{t.body}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <select
+                        value={t.category}
+                        onChange={(e) => statusMutation.mutate({ id: t.id, status: t.status, category: e.target.value })}
+                        disabled={statusMutation.isPending}
+                        className="border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-600 bg-white"
+                      >
+                        {Object.entries(templateCategoryLabels).map(([value, label]) => (
+                          <option key={value} value={value}>{label}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="px-4 py-3">
+                      <select
+                        value={t.status}
+                        onChange={(e) => changeStatus(t, e.target.value)}
+                        disabled={statusMutation.isPending}
+                        className="border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-600 bg-white"
+                      >
+                        {Object.entries(templateStatusLabels).map(([value, label]) => (
+                          <option key={value} value={value}>{label}</option>
+                        ))}
+                      </select>
                     </td>
                     <td className="px-4 py-3">
                       <button
@@ -215,6 +277,16 @@ export default function Automation() {
       </section>
 
       {editing && <TemplateEditorModal template={editing} onClose={() => setEditing(null)} />}
+
+      <ConfirmDialog
+        isOpen={pendingApprove !== null}
+        onClose={() => setPendingApprove(null)}
+        onConfirm={() => pendingApprove && statusMutation.mutate({ id: pendingApprove.id, status: "APPROVED" })}
+        title="סימון תבנית כמאושרת"
+        message={`יש לסמן "מאושר" רק כאשר נוסח התבנית ב-CRM זהה במדויק לנוסח שאושר על ידי מטא. תבנית מאושרת נשלחת ללקוחות אמיתיים. לאשר את "${pendingApprove?.name}"?`}
+        confirmLabel="סמן כמאושר"
+        isPending={statusMutation.isPending}
+      />
     </div>
   )
 }
