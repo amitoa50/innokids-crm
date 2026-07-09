@@ -10,6 +10,7 @@ export interface RuleContext {
   parentName: string
   childName?: string
   scheduledAt?: Date
+  meetingUrl?: string
 }
 
 interface GuardResult {
@@ -125,9 +126,10 @@ export const registry: Record<string, RuleDef> = {
       return { ok: true }
     }
   },
-  // Trial reminder 1h before — carries the (editable) Zoom link in its template text.
+  // Trial reminder 1h before — the join link is template variable {{3}}, filled from
+  // the trial's meetingUrl (editable per lesson in the CRM, no Meta re-approval needed).
   TRIAL_REMINDER_1H: {
-    resolveVariables: (ctx) => [ctx.parentName, fmtTime(ctx.scheduledAt)],
+    resolveVariables: (ctx) => [ctx.parentName, fmtTime(ctx.scheduledAt), ctx.meetingUrl || "יישלח אליכם לפני השיעור"],
     guard: async (row) => {
       const trial = await prisma.trialLesson.findUnique({ where: { id: row.entityId ?? -1 } })
       if (!trial || trial.status !== "SCHEDULED") return { ok: false, reason: "TRIAL_NOT_SCHEDULED" }

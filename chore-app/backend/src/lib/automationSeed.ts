@@ -25,7 +25,7 @@ const templates: TemplateSeed[] = [
   { name: "lead_welcome_followup", category: "MARKETING", body: "היי {{1}}, רצינו לוודא שקיבלת את הפנייה שלנו ל-INNOKIDS 🙂 עדיין מעוניינים? נשמח לחזור אליך.", variables: ["parentName"] },
   { name: "no_response_nudge_2", category: "MARKETING", body: "היי {{1}}, ניסינו שוב ליצור קשר בנוגע לקורסי התכנות ב-INNOKIDS. עדיין רלוונטי עבורכם?", variables: ["parentName"] },
   { name: "no_response_nudge_3", category: "MARKETING", body: "היי {{1}}, זו פנייה אחרונה מצידנו — אם תרצו לשמוע עוד על INNOKIDS אנחנו כאן 🙂", variables: ["parentName"] },
-  { name: "trial_reminder_1h", category: "UTILITY", body: "היי {{1}}, שיעור הניסיון ב-INNOKIDS מתחיל בעוד כשעה ({{2}}). קישור לזום: [הכניסו כאן את קישור הזום]", variables: ["parentName", "time"] },
+  { name: "trial_reminder_1h", category: "UTILITY", body: "היי {{1}}, שיעור הניסיון ב-INNOKIDS מתחיל בעוד כשעה ({{2}}). קישור להצטרפות: {{3}} — נתראה!", variables: ["parentName", "time", "meetingUrl"] },
   { name: "trial_join_now", category: "UTILITY", body: "היי {{1}}, אפשר כבר להתחבר לשיעור הניסיון ב-INNOKIDS — מחכים לכם! 🙂", variables: ["parentName"] }
 ]
 

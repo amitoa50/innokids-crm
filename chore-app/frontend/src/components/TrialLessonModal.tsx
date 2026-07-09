@@ -19,6 +19,7 @@ interface FormData {
   scheduledAt: string
   teacherId: string
   notes: string
+  meetingUrl: string
 }
 
 export default function TrialLessonModal({ isOpen, onClose, defaultLeadId, defaultLeadName }: Props) {
@@ -30,7 +31,8 @@ export default function TrialLessonModal({ isOpen, onClose, defaultLeadId, defau
       leadId: defaultLeadId?.toString() || "",
       groupId: "",
       teacherId: "",
-      notes: ""
+      notes: "",
+      meetingUrl: ""
     }
   })
 
@@ -43,7 +45,8 @@ export default function TrialLessonModal({ isOpen, onClose, defaultLeadId, defau
         groupId: "",
         scheduledAt: "",
         teacherId: "",
-        notes: ""
+        notes: "",
+        meetingUrl: ""
       })
       setChangingLead(false)
     }
@@ -74,7 +77,8 @@ export default function TrialLessonModal({ isOpen, onClose, defaultLeadId, defau
         groupId: data.groupId ? Number(data.groupId) : undefined,
         scheduledAt: data.scheduledAt,
         teacherId: data.teacherId ? Number(data.teacherId) : undefined,
-        notes: data.notes || undefined
+        notes: data.notes || undefined,
+        meetingUrl: data.meetingUrl || undefined
       })
     },
     onSuccess: () => {
@@ -156,6 +160,18 @@ export default function TrialLessonModal({ isOpen, onClose, defaultLeadId, defau
                 ))}
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">קישור לשיעור אונליין (זום)</label>
+            <input
+              {...register("meetingUrl")}
+              type="url"
+              dir="ltr"
+              placeholder="https://zoom.us/j/..."
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            />
+            <p className="text-xs text-slate-500 mt-1">יישלח להורה בתזכורת האוטומטית שעה לפני השיעור</p>
           </div>
 
           <div>
