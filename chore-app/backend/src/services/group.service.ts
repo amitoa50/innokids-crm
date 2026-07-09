@@ -118,9 +118,14 @@ export async function refreshGroupFullStatus(groupId: number) {
   }
 }
 
-export async function addStudentToGroup(groupId: number, studentId: number) {
+// allowOverfill lets staff assign into a full group anyway (a GROUP_FULL is a warning,
+// not a block); a missing group is still rejected.
+export async function addStudentToGroup(groupId: number, studentId: number, allowOverfill = false) {
   const capacity = await checkGroupCapacity(groupId)
-  if (!capacity.ok) return { error: capacity.reason }
+  if (!capacity.ok) {
+    if (capacity.reason === "GROUP_NOT_FOUND") return { error: "GROUP_NOT_FOUND" as const }
+    if (!allowOverfill) return { error: capacity.reason }
+  }
 
   const student = await prisma.student.update({
     where: { id: studentId },

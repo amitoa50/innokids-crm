@@ -2,7 +2,7 @@
 
 Status: active
 Owner: Amit Ohana
-Last updated: 2026-07-08
+Last updated: 2026-07-09
 
 Takes the mock-validated WhatsApp stack (plans [004](004-2026-07-06-whatsapp-integration-phase-2.md)–[008](008-2026-07-07-automation-sequences.md), hardened by [009](009-2026-07-08-pre-cutover-hardening.md)) live on the real Meta Cloud API. The `CloudApiProvider`, signature verification, webhook, consent/window gating, and automation engine are already built and regression-tested — this plan is mostly **operational**: Meta-side setup, template approval, staged live validation behind a tunnel, then a small production deployment. Code changes are limited to deploy-readiness config and a template-status sync endpoint.
 
@@ -179,3 +179,33 @@ The status endpoint accepts any of the four values (admin judgment, no rigid tra
 - Validation: 34/34 tests green; backend `tsc` + frontend `tsc && vite build` clean; compiled-boot smoke test — `/api/health` `{ ok: true }`, `/leads` serves the SPA `index.html`, seed intact.
 
 **Next:** Phases A–B are owner actions in the Meta consoles (checklist in this plan). Phases D–F each require explicit approval before any live message, automation enable, or deploy.
+
+### 2026-07-08 — Phase C merged
+
+- `feat/meta-cutover` merged to master via PR #2 (`ab656ef`); CLAUDE.md updated (`4767459`).
+
+### 2026-07-09 — Phase A done (Test Number variant), config drift corrected
+
+- **Phase A complete against Meta's free Test Number** instead of a production WABA/number (deliberate: validate Stages 1–2 for free before buying a dedicated number). Test WABA + Test Number registered; Phone Number ID, app secret, verify token captured in `chore-app/backend/.env`; **permanent** System User token (`Innokidscrmapi`, expiration Never) — send verified end-to-end via direct Graph API call. Details in `chore-app/META_WHATSAPP_SETUP.md`. Payment method (Phase A step 6) deferred — not needed for the Test Number, required before Phase F.
+- **Config drift found and corrected during a full project review:**
+  - `.env` had `AUTOMATION_ENABLED=true` with `WHATSAPP_PROVIDER=cloud` — contradicts the staged rollout (must stay `false` until Phase E). Reset to `false`.
+  - All 12 `MessageTemplate` rows were `APPROVED` in the DB — leftovers from mock-era seeding (upsert preserves existing status), violating this plan's safe-default assumption. Reset all 12 to `DRAFT`; they return to `APPROVED` only via the manual sync flow (Locked design 2) after real Meta approval.
+- Test Number limitation noted for Phases D–E: max 5 verified recipient numbers; currently only the owner's phone (`+972-53-700-5288`) is verified.
+
+**Next:** Phase B — create the 12 templates in WhatsApp Manager (exact seed names, language `he`, Zoom placeholder in `trial_reminder_1h` replaced with the real link and mirrored in the CRM editor), then Phase D — webhook over a cloudflared tunnel.
+
+### 2026-07-09 (later) — Account switch, Phase B submitted, meetingUrl slice
+
+- **Active account switched:** the WABA/number used in the first setup session (`1430169641733295` / `1055754777626659`, US test number +1 555-173-2420 "Test Number" — NOT an Israeli number; earlier label was wrong) is retired. The owner's recipient phone was verified on that old number, so first-session messages arrived from +1 555-173-2420. Active test setup: WABA `778267717924725`, Phone Number ID `727670483768019`, number `+1 (555) 820-3617`. `.env` re-pointed; existing permanent token re-verified read-only against the new WABA + number (`whatsapp_business_management` confirmed). Owner's recipient verification must be redone on the new number.
+- **Phase B complete (submission):** all 12 templates submitted via Graph API (owner-approved deviation from manual submission) — all accepted `PENDING`. CRM template rows set to `PENDING` per Locked design 2.
+- **`trial_reminder_1h` redesign (owner decision):** Zoom link is variable `{{3}}` filled from `TrialLesson.meetingUrl` at enqueue/reschedule — editable per lesson in the CRM with no Meta re-approval. Body ends with text ("— נתראה!") to satisfy Meta's no-trailing-variable rule. ⚠️ Meta reclassified it UTILITY → **MARKETING** (consent-gate impact per Locked design 1); appeal or accept before Phase E.
+- **Code slice (uncommitted):** `RuleContext.meetingUrl` + third variable in `TRIAL_REMINDER_1H` resolution (fallback "יישלח אליכם לפני השיעור"); `meetingUrl` accepted in trial create/update with pending-row refresh on link change; seed body/variables synced; `TrialLessonModal` gains a Zoom-link field. Backend `tsc` clean, 34/34 tests green, frontend `tsc` + build clean.
+
+### 2026-07-09 (later still) — Live Meta test-number validation paused; back to mock for remaining dev
+
+- **Decision (owner):** stop fighting Meta's throwaway test numbers. Two US test WABAs got created (`778…`/+1 555-820-3617 "INNOKIDS" and `1430…`/+1 555-173-2420 "Test Number"); the owner's recipient phone was only verified on the old one, per-number recipient allow-lists caused accepted-but-dropped sends on the other, and the two-number identity kept getting confused. The real Meta connection is already proven (permanent token, successful sends with valid message IDs, 12 templates submitted). No further value in chasing a test number.
+- **Action:** `WHATSAPP_PROVIDER=mock` locally (cloud credentials preserved in `.env` for later); `AUTOMATION_ENABLED=true` (safe under mock — no real calls); all 12 DB templates set `APPROVED` (the mock-install default) so the full pipeline runs end-to-end on the dev machine. The 12 templates submitted to WABA `778…` remain PENDING at Meta but that whole test WABA is set aside.
+- **Deferral:** Phases D–F (live webhook, staged live automation, production deploy) move to **when a real production phone number is purchased**. At that point: register the number to a fresh/real WABA, resubmit + approve the 12 templates there, set `WHATSAPP_PROVIDER=cloud` + `AUTOMATION_ENABLED=false`, then run Phases D→F as written.
+- **Unaffected:** all application code is production-ready and provider-agnostic; only the provider switch and template-approval sync remain, both already built.
+
+**Next (mock dev):** finish validating the full flow locally — inbound simulation, automation sequences, the lead-intake → welcome pipeline — then wire plan 011 (Make) once a production URL exists.

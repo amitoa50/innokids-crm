@@ -49,6 +49,14 @@ export interface Lead {
   trialLessons?: TrialLesson[]
   tasks?: Task[]
   activityLogs?: ActivityLog[]
+  tags?: Tag[]
+}
+
+export interface Tag {
+  id: number
+  name: string
+  color: string | null
+  createdAt?: string
 }
 
 export interface Student {

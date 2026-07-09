@@ -15,6 +15,7 @@ interface CreateTrialData {
   scheduledAt: string
   teacherId?: number
   notes?: string
+  meetingUrl?: string
 }
 
 export async function listTrialLessons(filters: {
@@ -50,7 +51,8 @@ export async function createTrialLesson(data: CreateTrialData, performedById: nu
       groupId: data.groupId,
       scheduledAt: new Date(data.scheduledAt),
       teacherId: data.teacherId,
-      notes: data.notes
+      notes: data.notes,
+      meetingUrl: data.meetingUrl
     },
     include: {
       lead: { select: { fullName: true, assignedToId: true } },
@@ -100,7 +102,8 @@ export async function createTrialLesson(data: CreateTrialData, performedById: nu
     entityId: trial.id,
     baseTime: trial.scheduledAt,
     parentName: trial.lead.fullName,
-    scheduledAt: trial.scheduledAt
+    scheduledAt: trial.scheduledAt,
+    meetingUrl: trial.meetingUrl ?? undefined
   })
   await enqueue("TRIAL_JOIN_NOW", {
     leadId: data.leadId,
@@ -121,7 +124,8 @@ export async function updateTrialLesson(id: number, data: Partial<CreateTrialDat
       ...(data.groupId !== undefined && { groupId: data.groupId }),
       ...(data.scheduledAt && { scheduledAt: new Date(data.scheduledAt) }),
       ...(data.teacherId !== undefined && { teacherId: data.teacherId }),
-      ...(data.notes !== undefined && { notes: data.notes })
+      ...(data.notes !== undefined && { notes: data.notes }),
+      ...(data.meetingUrl !== undefined && { meetingUrl: data.meetingUrl })
     },
     include: {
       lead: { select: { fullName: true } },
@@ -148,14 +152,6 @@ export async function updateTrialLesson(id: number, data: Partial<CreateTrialDat
       parentName: trial.lead.fullName,
       scheduledAt: trial.scheduledAt
     })
-    await enqueue("TRIAL_REMINDER_1H", {
-      leadId: trial.leadId,
-      entityType: "TRIAL_LESSON",
-      entityId: id,
-      baseTime: trial.scheduledAt,
-      parentName: trial.lead.fullName,
-      scheduledAt: trial.scheduledAt
-    })
     await enqueue("TRIAL_JOIN_NOW", {
       leadId: trial.leadId,
       entityType: "TRIAL_LESSON",
@@ -163,6 +159,20 @@ export async function updateTrialLesson(id: number, data: Partial<CreateTrialDat
       baseTime: trial.scheduledAt,
       parentName: trial.lead.fullName,
       scheduledAt: trial.scheduledAt
+    })
+  }
+
+  // The 1h reminder also carries the join link ({{3}}), so refresh its pending row
+  // when either the time or the meeting URL changes
+  if (data.scheduledAt || data.meetingUrl !== undefined) {
+    await enqueue("TRIAL_REMINDER_1H", {
+      leadId: trial.leadId,
+      entityType: "TRIAL_LESSON",
+      entityId: id,
+      baseTime: trial.scheduledAt,
+      parentName: trial.lead.fullName,
+      scheduledAt: trial.scheduledAt,
+      meetingUrl: trial.meetingUrl ?? undefined
     })
   }
 

@@ -26,6 +26,8 @@ import userRoutes from "./routes/user"
 import notificationRoutes from "./routes/notification"
 import whatsappRoutes from "./routes/whatsapp"
 import automationRoutes from "./routes/automation"
+import tagRoutes from "./routes/tag"
+import { seedTags } from "./services/tag.service"
 
 const app = express()
 
@@ -49,6 +51,7 @@ app.use("/api/user", userRoutes)
 app.use("/api/notification", notificationRoutes)
 app.use("/api/whatsapp", whatsappRoutes)
 app.use("/api/automation", automationRoutes)
+app.use("/api/tag", tagRoutes)
 
 // Production: serve the built frontend from the same service (relative /api
 // keeps working, no CORS). Skipped in dev, where Vite serves the frontend.
@@ -142,6 +145,7 @@ const PORT = Number(process.env.PORT) || 4000
 
 seedAdmin()
   .then(() => seedAutomation())
+  .then(() => seedTags())
   .then(() => {
     app.listen(PORT, () => {
       console.log(`Server running on http://localhost:${PORT}`)

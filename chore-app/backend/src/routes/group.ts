@@ -53,7 +53,7 @@ router.put("/:id", requireAdmin, async (req: Request, res: Response) => {
 
 router.post("/:id/student", async (req: Request, res: Response) => {
   const groupId = Number(req.params.id)
-  const { studentId } = req.body
+  const { studentId, allowOverfill } = req.body
 
   if (!studentId) {
     res.status(400).json({
@@ -63,7 +63,7 @@ router.post("/:id/student", async (req: Request, res: Response) => {
     return
   }
 
-  const result = await groupService.addStudentToGroup(groupId, studentId)
+  const result = await groupService.addStudentToGroup(groupId, studentId, !!allowOverfill)
 
   if ("error" in result) {
     if (result.error === "GROUP_NOT_FOUND") {
