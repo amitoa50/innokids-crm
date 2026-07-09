@@ -6,16 +6,15 @@ import { toast } from "sonner"
 import client from "../api/client"
 import type { Lead, User, Conversation } from "../types"
 import StatusBadge from "../components/StatusBadge"
+import { PIPELINE_STATUSES, statusLabel } from "../lib/statusLabels"
 import ActivityTimeline from "../components/ActivityTimeline"
 import StudentModal from "../components/StudentModal"
 import TrialLessonModal from "../components/TrialLessonModal"
 import TaskModal from "../components/TaskModal"
 import LeadModal from "../components/LeadModal"
+import TagPicker from "../components/TagPicker"
 
-const statuses = [
-  "NEW", "CONTACTED", "NO_RESPONSE", "TRIAL_SCHEDULED",
-  "TRIAL_COMPLETED", "FOLLOW_UP_AFTER_TRIAL", "CONVERTED", "CLOSED"
-]
+const statuses = [...PIPELINE_STATUSES]
 
 function waTicks(status: string): string {
   if (status === "READ") return "✓✓ נקרא"
@@ -163,7 +162,7 @@ export default function LeadDetails() {
                 className="border border-slate-300 rounded-lg px-3 py-2 text-sm"
               >
                 {statuses.map((s) => (
-                  <option key={s} value={s}>{s}</option>
+                  <option key={s} value={s}>{statusLabel(s)}</option>
                 ))}
               </select>
               <select
@@ -204,6 +203,10 @@ export default function LeadDetails() {
                   פתח מחדש
                 </button>
               )}
+            </div>
+            <div className="flex items-center gap-2 flex-wrap pt-1">
+              <span className="text-sm text-slate-500">תגיות:</span>
+              <TagPicker leadId={lead.id} tags={lead.tags || []} />
             </div>
           </div>
 

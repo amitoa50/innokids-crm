@@ -60,6 +60,16 @@ model Lead {
   leadIntakes   LeadIntake[]
   conversations Conversation[]     @relation("LeadConversations")
   scheduledMessages ScheduledMessage[]
+  tags          Tag[]              @relation("LeadTags")
+}
+
+model Tag {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  color     String?  // hex like #f59e0b, optional
+  createdAt DateTime @default(now())
+
+  leads Lead[] @relation("LeadTags")
 }
 
 model Student {

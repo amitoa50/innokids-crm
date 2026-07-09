@@ -1,7 +1,7 @@
 import prisma from "../lib/prisma"
 import { normalizePhone } from "../lib/phoneNormalizer"
 import { canTransition } from "../lib/pipeline"
-import { checkGroupCapacity, refreshGroupFullStatus } from "./group.service"
+import { checkGroupCapacity, refreshGroupFullStatus, createGroup } from "./group.service"
 import { logActivity } from "./activityLog.service"
 import { createNotification, notifyAdmins } from "./notification.service"
 import { enqueue } from "./automation.service"
@@ -23,12 +23,24 @@ interface CreateLeadData {
   preferredChannel?: string
 }
 
+interface NewGroupData {
+  name: string
+  type: string
+  learningFormat: string
+  branch?: string
+  dayOfWeek?: string
+  startTime?: string
+  endTime?: string
+  maxCapacity?: number
+}
+
 interface ConvertData {
   childName: string
   childBirthYear?: number
   learningFormat: string
   branch?: string
   groupId?: number
+  newGroup?: NewGroupData
 }
 
 export async function createLead(data: CreateLeadData, performedById?: number) {
@@ -149,13 +161,15 @@ export async function setLeadStatus(
   id: number,
   newStatus: string,
   performedById: number | undefined,
-  opts: { system?: boolean } = {}
+  opts: { system?: boolean; force?: boolean } = {}
 ) {
   const lead = await prisma.lead.findUnique({ where: { id } })
   if (!lead) return null
 
   const oldStatus = lead.status
-  if (!canTransition(oldStatus, newStatus)) {
+  // force skips the transition map — staff can move a lead to any stage manually
+  // (board drag / dropdown). System auto-callers still skip silently on illegal moves.
+  if (!opts.force && !canTransition(oldStatus, newStatus)) {
     if (opts.system) return lead
     return { error: "INVALID_TRANSITION" as const, from: oldStatus, to: newStatus }
   }
@@ -186,7 +200,8 @@ export async function updateLeadStatus(
   newStatus: string,
   performedById: number
 ) {
-  return setLeadStatus(id, newStatus, performedById)
+  // Manual status change (dropdown / board drag) — staff is in control, any move allowed.
+  return setLeadStatus(id, newStatus, performedById, { force: true })
 }
 
 export async function assignLead(
@@ -224,9 +239,17 @@ export async function convertLead(
   if (!lead) return null
   if (lead.status === "CONVERTED") return { error: "ALREADY_CONVERTED" as const }
 
-  if (studentData.groupId) {
+  // Resolve the target group: create a new one on the fly, or use an existing id.
+  // A full group is NOT blocked — staff decides who goes where (over-capacity allowed).
+  let targetGroupId = studentData.groupId
+  if (studentData.newGroup) {
+    const created = await createGroup(studentData.newGroup)
+    targetGroupId = created.id
+  } else if (studentData.groupId) {
     const capacity = await checkGroupCapacity(studentData.groupId)
-    if (!capacity.ok) return { error: capacity.reason }
+    if (!capacity.ok && capacity.reason === "GROUP_NOT_FOUND") {
+      return { error: "GROUP_NOT_FOUND" as const }
+    }
   }
 
   const student = await prisma.student.create({
@@ -236,12 +259,12 @@ export async function convertLead(
       childBirthYear: studentData.childBirthYear,
       learningFormat: studentData.learningFormat,
       branch: studentData.branch,
-      groupId: studentData.groupId
+      groupId: targetGroupId
     }
   })
 
-  if (studentData.groupId) {
-    await refreshGroupFullStatus(studentData.groupId)
+  if (targetGroupId) {
+    await refreshGroupFullStatus(targetGroupId)
   }
 
   await prisma.lead.update({

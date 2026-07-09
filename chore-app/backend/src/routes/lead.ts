@@ -17,7 +17,7 @@ const sendErrorStatus: Record<string, number> = {
 router.use(authenticate)
 
 router.get("/", async (req: Request, res: Response) => {
-  const { status, source, assignedToId, search, learningFormat } = req.query
+  const { status, source, assignedToId, search, learningFormat, tagId } = req.query
 
   const leads = await prisma.lead.findMany({
     where: {
@@ -25,6 +25,7 @@ router.get("/", async (req: Request, res: Response) => {
       ...(source && { source: source as string }),
       ...(assignedToId && { assignedToId: Number(assignedToId) }),
       ...(learningFormat && { learningFormat: learningFormat as string }),
+      ...(tagId && { tags: { some: { id: Number(tagId) } } }),
       ...(search && {
         OR: [
           { fullName: { contains: search as string } },
@@ -34,7 +35,8 @@ router.get("/", async (req: Request, res: Response) => {
       })
     },
     include: {
-      assignedTo: { select: { id: true, name: true } }
+      assignedTo: { select: { id: true, name: true } },
+      tags: true
     },
     orderBy: { createdAt: "desc" }
   })
@@ -49,6 +51,7 @@ router.get("/:id", async (req: Request, res: Response) => {
     where: { id },
     include: {
       assignedTo: { select: { id: true, name: true } },
+      tags: true,
       students: true,
       trialLessons: {
         include: {
@@ -206,7 +209,7 @@ router.put("/:id/assign", async (req: Request, res: Response) => {
 
 router.post("/:id/convert", async (req: Request, res: Response) => {
   const id = Number(req.params.id)
-  const { childName, childBirthYear, learningFormat, branch, groupId } = req.body
+  const { childName, childBirthYear, learningFormat, branch, groupId, newGroup } = req.body
 
   if (!childName || !learningFormat) {
     res.status(400).json({
@@ -218,7 +221,7 @@ router.post("/:id/convert", async (req: Request, res: Response) => {
 
   const result = await leadService.convertLead(
     id,
-    { childName, childBirthYear, learningFormat, branch, groupId },
+    { childName, childBirthYear, learningFormat, branch, groupId, newGroup },
     req.user!.userId
   )
 
@@ -238,13 +241,6 @@ router.post("/:id/convert", async (req: Request, res: Response) => {
       })
       return
     }
-    if (result.error === "GROUP_FULL") {
-      res.status(409).json({
-        error: { code: "GROUP_FULL", message: "Group is at full capacity" },
-        requestId: req.requestId
-      })
-      return
-    }
     res.status(409).json({
       error: { code: "ALREADY_CONVERTED", message: "Lead is already converted" },
       requestId: req.requestId
@@ -253,6 +249,47 @@ router.post("/:id/convert", async (req: Request, res: Response) => {
   }
 
   res.status(201).json(result)
+})
+
+router.post("/:id/tag", async (req: Request, res: Response) => {
+  const id = Number(req.params.id)
+  const { tagId } = req.body
+
+  if (!tagId) {
+    res.status(400).json({
+      error: { code: "BAD_REQUEST", message: "tagId is required" },
+      requestId: req.requestId
+    })
+    return
+  }
+
+  const lead = await prisma.lead.findUnique({ where: { id } })
+  if (!lead) {
+    res.status(404).json({
+      error: { code: "NOT_FOUND", message: "Lead not found" },
+      requestId: req.requestId
+    })
+    return
+  }
+
+  const updated = await prisma.lead.update({
+    where: { id },
+    data: { tags: { connect: { id: Number(tagId) } } },
+    include: { tags: true }
+  })
+  res.json(updated)
+})
+
+router.delete("/:id/tag/:tagId", async (req: Request, res: Response) => {
+  const id = Number(req.params.id)
+  const tagId = Number(req.params.tagId)
+
+  const updated = await prisma.lead.update({
+    where: { id },
+    data: { tags: { disconnect: { id: tagId } } },
+    include: { tags: true }
+  })
+  res.json(updated)
 })
 
 router.post("/:id/reopen", async (req: Request, res: Response) => {
