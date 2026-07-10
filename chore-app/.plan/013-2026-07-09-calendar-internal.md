@@ -1,6 +1,6 @@
 # Plan 013: Internal Calendar — per-staff scheduling views
 
-Status: active
+Status: done
 Owner: Amit Ohana
 Last updated: 2026-07-10
 
@@ -95,3 +95,7 @@ Branch `feat/calendar-internal`; PR + CI; merge on explicit approval.
 - Phase 1: `calendar.service.ts` (four sources normalized, group weekly expansion, staff scoping) + `routes/calendar.ts` (STAFF locked to self, ADMIN any/all, `from`/`to` required) + mount. Live smoke against the running server returned TRIAL/TASK/FOLLOW_UP correctly.
 - Phase 2: `Calendar.tsx` rewritten — single range-driven query, `@fullcalendar/timegrid` (month/week/day), admin staff selector, event click-through to entities, task color token (`--color-event-task`) + updated legend.
 - Phase 3: 5 new tests in `test/calendar.service.test.ts` — **46/46 suite green**; backend + frontend `tsc` clean; `vite build` clean (completed 2026-07-10 after a transient infra outage blocked the shell overnight).
+
+### 2026-07-10 — merged
+
+- Committed as `87f867d`, PR #4, CI green (backend + frontend), merged to master (`c590468`); branch deleted.
