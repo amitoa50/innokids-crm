@@ -27,6 +27,7 @@ import notificationRoutes from "./routes/notification"
 import whatsappRoutes from "./routes/whatsapp"
 import automationRoutes from "./routes/automation"
 import tagRoutes from "./routes/tag"
+import calendarRoutes from "./routes/calendar"
 import { seedTags } from "./services/tag.service"
 
 const app = express()
@@ -52,6 +53,7 @@ app.use("/api/notification", notificationRoutes)
 app.use("/api/whatsapp", whatsappRoutes)
 app.use("/api/automation", automationRoutes)
 app.use("/api/tag", tagRoutes)
+app.use("/api/calendar", calendarRoutes)
 
 // Production: serve the built frontend from the same service (relative /api
 // keeps working, no CORS). Skipped in dev, where Vite serves the frontend.

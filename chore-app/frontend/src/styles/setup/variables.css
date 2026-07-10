@@ -23,6 +23,7 @@
   --color-event-followup: #f97316;
   --color-event-group: #22c55e;
   --color-event-overdue: #ef4444;
+  --color-event-task: #8b5cf6;
 
   /* Spacing scale */
   --space-xs: 0.25rem;
