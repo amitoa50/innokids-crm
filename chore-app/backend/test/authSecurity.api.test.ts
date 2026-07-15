@@ -33,3 +33,12 @@ describe("JWT secret handling", () => {
     expect(res.status).toBe(401)
   })
 })
+
+describe("registration is closed", () => {
+  it("returns 404 for POST /api/auth/register", async () => {
+    const res = await request(app)
+      .post("/api/auth/register")
+      .send({ email: "intruder@evil.com", password: "hack", name: "פולש" })
+    expect(res.status).toBe(404)
+  })
+})

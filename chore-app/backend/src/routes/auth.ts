@@ -55,42 +55,4 @@ router.post("/login", async (req: Request, res: Response) => {
   })
 })
 
-router.post("/register", async (req: Request, res: Response) => {
-  const { email, password, name } = req.body
-
-  if (!email || !password || !name) {
-    res.status(400).json({
-      error: { code: "BAD_REQUEST", message: "Email, password, and name are required" },
-      requestId: req.requestId
-    })
-    return
-  }
-
-  const existing = await prisma.user.findUnique({ where: { email } })
-  if (existing) {
-    res.status(400).json({
-      error: { code: "BAD_REQUEST", message: "Email already in use" },
-      requestId: req.requestId
-    })
-    return
-  }
-
-  const hashed = await bcrypt.hash(password, 10)
-  const user = await prisma.user.create({
-    data: { email, password: hashed, name }
-  })
-
-  const token = jwt.sign(
-    { userId: user.id, email: user.email, role: user.role },
-    getJwtSecret(),
-    { expiresIn: "7d" }
-  )
-
-  res.status(201).json({
-    token,
-    user: { id: user.id, email: user.email, name: user.name, role: user.role },
-    requestId: req.requestId
-  })
-})
-
 export default router
