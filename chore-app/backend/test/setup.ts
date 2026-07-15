@@ -6,3 +6,4 @@ process.env.DATABASE_URL = TEST_DB_URL
 process.env.WHATSAPP_PROVIDER = "mock"
 process.env.JWT_SECRET = "test-secret"
 process.env.AUTOMATION_ENABLED = "false"
+process.env.WHATSAPP_APP_SECRET = "test-app-secret"
