@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express"
 import jwt from "jsonwebtoken"
 import { getJwtSecret } from "../lib/jwtSecret"
+import prisma from "../lib/prisma"
 
 interface JwtPayload {
   userId: number
@@ -16,7 +17,7 @@ declare global {
   }
 }
 
-export function authenticate(req: Request, res: Response, next: NextFunction): void {
+export async function authenticate(req: Request, res: Response, next: NextFunction): Promise<void> {
   const authHeader = req.headers.authorization
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     res.status(401).json({
@@ -27,16 +28,30 @@ export function authenticate(req: Request, res: Response, next: NextFunction): v
   }
 
   const token = authHeader.split(" ")[1]
+  let decoded: JwtPayload
   try {
-    const decoded = jwt.verify(token, getJwtSecret()) as JwtPayload
-    req.user = decoded
-    next()
+    decoded = jwt.verify(token, getJwtSecret()) as JwtPayload
   } catch {
     res.status(401).json({
       error: { code: "UNAUTHORIZED", message: "Invalid or expired token" },
       requestId: req.requestId
     })
+    return
   }
+
+  // Re-check against the DB so deactivation and role changes take effect
+  // immediately instead of surviving until the 7-day token expires
+  const user = await prisma.user.findUnique({ where: { id: decoded.userId } })
+  if (!user || user.status !== "ACTIVE") {
+    res.status(401).json({
+      error: { code: "UNAUTHORIZED", message: "Account is inactive" },
+      requestId: req.requestId
+    })
+    return
+  }
+
+  req.user = { userId: user.id, email: user.email, role: user.role }
+  next()
 }
 
 export function requireAdmin(req: Request, res: Response, next: NextFunction): void {

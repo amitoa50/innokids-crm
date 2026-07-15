@@ -3,7 +3,8 @@ import request from "supertest"
 import jwt from "jsonwebtoken"
 import app from "../src/app"
 import { getJwtSecret } from "../src/lib/jwtSecret"
-import { resetDb, createAdmin } from "./helpers/db"
+import { resetDb, createAdmin, prisma } from "./helpers/db"
+import { tokenFor } from "./helpers/auth"
 
 beforeEach(async () => {
   await resetDb()
@@ -40,5 +41,41 @@ describe("registration is closed", () => {
       .post("/api/auth/register")
       .send({ email: "intruder@evil.com", password: "hack", name: "פולש" })
     expect(res.status).toBe(404)
+  })
+})
+
+describe("per-request user re-validation", () => {
+  it("rejects a valid token once the user is deactivated", async () => {
+    const admin = await createAdmin()
+    const token = tokenFor(admin)
+    await prisma.user.update({ where: { id: admin.id }, data: { status: "INACTIVE" } })
+
+    const res = await request(app)
+      .get("/api/notification")
+      .set("Authorization", `Bearer ${token}`)
+    expect(res.status).toBe(401)
+  })
+
+  it("applies a role downgrade immediately, before token expiry", async () => {
+    const admin = await createAdmin()
+    const token = tokenFor(admin)
+    await prisma.user.update({ where: { id: admin.id }, data: { role: "STAFF" } })
+
+    const res = await request(app)
+      .post("/api/user")
+      .set("Authorization", `Bearer ${token}`)
+      .send({ email: "new@test.local", password: "pw123456", name: "חדש" })
+    expect(res.status).toBe(403)
+  })
+})
+
+describe("login route", () => {
+  it("returns 401 UNAUTHORIZED for wrong credentials", async () => {
+    await createAdmin()
+    const res = await request(app)
+      .post("/api/auth/login")
+      .send({ email: "admin@test.local", password: "wrong-password" })
+    expect(res.status).toBe(401)
+    expect(res.body.error.code).toBe("UNAUTHORIZED")
   })
 })
