@@ -2,6 +2,7 @@ import { Router, Request, Response } from "express"
 import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
 import prisma from "../lib/prisma"
+import { getJwtSecret } from "../lib/jwtSecret"
 const router = Router()
 
 router.post("/login", async (req: Request, res: Response) => {
@@ -43,7 +44,7 @@ router.post("/login", async (req: Request, res: Response) => {
 
   const token = jwt.sign(
     { userId: user.id, email: user.email, role: user.role },
-    process.env.JWT_SECRET || "secret",
+    getJwtSecret(),
     { expiresIn: "7d" }
   )
 
@@ -81,7 +82,7 @@ router.post("/register", async (req: Request, res: Response) => {
 
   const token = jwt.sign(
     { userId: user.id, email: user.email, role: user.role },
-    process.env.JWT_SECRET || "secret",
+    getJwtSecret(),
     { expiresIn: "7d" }
   )
 
