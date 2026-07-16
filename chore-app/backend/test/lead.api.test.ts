@@ -24,6 +24,21 @@ describe("PUT /api/lead/:id phone handling", () => {
     expect(updated!.phoneNormalized).toBe("+972523334444")
   })
 
+  it("allows updating a lead with its own unchanged phone (no 409)", async () => {
+    const admin = await createAdmin()
+    const lead = await createLead()
+
+    const res = await request(app)
+      .put(`/api/lead/${lead.id}`)
+      .set("Authorization", `Bearer ${tokenFor(admin)}`)
+      .send({ phone: lead.phone, fullName: "שם מעודכן" })
+
+    expect(res.status).toBe(200)
+    const updated = await prisma.lead.findUnique({ where: { id: lead.id } })
+    expect(updated!.fullName).toBe("שם מעודכן")
+    expect(updated!.phoneNormalized).toBe(lead.phoneNormalized)
+  })
+
   it("returns 409 DUPLICATE_PHONE when the new phone belongs to another lead", async () => {
     const admin = await createAdmin()
     const leadA = await createLead()
