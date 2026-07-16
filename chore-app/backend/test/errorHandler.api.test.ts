@@ -21,4 +21,15 @@ describe("global error handler", () => {
     expect(res.body.error.code).toBe("INTERNAL")
     expect(res.body.requestId).toBeTruthy()
   })
+
+  it("returns 400 BAD_REQUEST with requestId for malformed JSON bodies", async () => {
+    const res = await request(app)
+      .post("/api/auth/login")
+      .set("Content-Type", "application/json")
+      .send("{not-json")
+
+    expect(res.status).toBe(400)
+    expect(res.body.error.code).toBe("BAD_REQUEST")
+    expect(res.body.requestId).toBeTruthy()
+  })
 })

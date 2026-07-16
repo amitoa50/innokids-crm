@@ -22,8 +22,8 @@ import calendarRoutes from "./routes/calendar"
 const app = express()
 
 app.use(cors({ origin: process.env.CORS_ORIGIN || "http://localhost:5173" }))
-app.use(express.json({ verify: (req, _res, buf) => { (req as express.Request).rawBody = buf } }))
 app.use(requestIdMiddleware)
+app.use(express.json({ verify: (req, _res, buf) => { (req as express.Request).rawBody = buf } }))
 
 app.get("/api/health", (req, res) => {
   res.json({ ok: true, requestId: req.requestId })
@@ -55,11 +55,18 @@ if (fs.existsSync(frontendDist)) {
 }
 
 // Last-resort error handler: keep the JSON error contract even for unhandled
-// throws (Express v5 forwards async errors here natively)
+// throws (Express v5 forwards async errors here natively). Client errors from
+// middleware (e.g. malformed JSON bodies, err.status = 400) keep their status.
 app.use((err: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error(`[${req.requestId}] Unhandled error:`, err)
-  res.status(500).json({
-    error: { code: "INTERNAL", message: "Internal server error" },
+  const status = (err as { status?: number; statusCode?: number }).status
+    ?? (err as { statusCode?: number }).statusCode
+    ?? 500
+  if (status >= 500) console.error(`[${req.requestId}] Unhandled error:`, err)
+  res.status(status).json({
+    error: {
+      code: status < 500 ? "BAD_REQUEST" : "INTERNAL",
+      message: status < 500 ? "Invalid request" : "Internal server error"
+    },
     requestId: req.requestId
   })
 })
