@@ -54,4 +54,14 @@ if (fs.existsSync(frontendDist)) {
   })
 }
 
+// Last-resort error handler: keep the JSON error contract even for unhandled
+// throws (Express v5 forwards async errors here natively)
+app.use((err: Error, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error(`[${req.requestId}] Unhandled error:`, err)
+  res.status(500).json({
+    error: { code: "INTERNAL", message: "Internal server error" },
+    requestId: req.requestId
+  })
+})
+
 export default app
