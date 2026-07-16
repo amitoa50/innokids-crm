@@ -90,6 +90,8 @@ describe("team list access", () => {
       .set("Authorization", `Bearer ${tokenFor(staff)}`)
     expect(res.status).toBe(200)
     expect(res.body.length).toBe(2)
+    expect(res.body[0]).toMatchObject({ id: expect.any(Number), name: expect.any(String) })
+    expect(res.body[0]).not.toHaveProperty("password")
   })
 
   it("still blocks STAFF from creating users", async () => {
