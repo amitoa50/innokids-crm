@@ -22,14 +22,14 @@ export default function NotificationBell() {
   const { data: notifications = [] } = useQuery<Notification[]>({
     queryKey: ["notifications"],
     queryFn: async () => {
-      const { data } = await client.get("/notifications?unreadOnly=true")
+      const { data } = await client.get("/notification?unreadOnly=true")
       return data
     },
     refetchInterval: 30000,
   })
 
   const markRead = useMutation({
-    mutationFn: (id: number) => client.put(`/notifications/${id}/read`),
+    mutationFn: (id: number) => client.put(`/notification/${id}/read`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["notifications"] }),
   })
 
