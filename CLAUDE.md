@@ -45,7 +45,7 @@ chore-app/
         auth.ts                 # JWT verification + role guard
         apiKey.ts               # Webhook API key validation
       routes/
-        auth.ts                 # POST /api/auth/login, /register
+        auth.ts                 # POST /api/auth/login (registration removed — admins create users)
         lead.ts                 # Lead CRUD + pipeline operations
         leadIntake.ts           # Webhook lead intake endpoints
         student.ts              # Student CRUD
@@ -144,7 +144,7 @@ All routes use singular entity names. Error responses follow shape: `{ error: { 
 
 | Route prefix | Description |
 |-------------|-------------|
-| `/api/auth` | Login, register |
+| `/api/auth` | Login only (self-registration removed) |
 | `/api/lead` | Lead CRUD, status changes (transition-guarded), assign, convert, reopen, notes, conversation/message logging |
 | `/api/lead-intake` | Webhook intake (`POST /webhook/:source`), intake log |
 | `/api/student` | Student CRUD |
@@ -152,7 +152,7 @@ All routes use singular entity names. Error responses follow shape: `{ error: { 
 | `/api/trial-lesson` | Trial lesson scheduling and status |
 | `/api/task` | Task CRUD, complete |
 | `/api/report` | Dashboard stats, pipeline, source, staff performance |
-| `/api/user` | Team management (admin only) |
+| `/api/user` | Team management (list: any authenticated user; mutations: admin only) |
 | `/api/notification` | In-app notifications |
 | `/api/whatsapp` | WhatsApp webhook (verify + inbound + status callbacks); provider-verified, not JWT |
 | `/api/automation` | Automation monitoring + template content (admin only): list rules, list `ScheduledMessage` outbox with per-status counts, read `MessageTemplate`s with usage, edit template body, sync Meta approval status/category (`PUT /template/:id/status`) |
@@ -208,3 +208,5 @@ npm run preview           # preview production build
 - **Group capacity** enforced on assignment/conversion — full group returns `409 GROUP_FULL` and flips `status` to `FULL`.
 - **WhatsApp (Phase 2):** provider-agnostic adapter in `src/services/whatsapp/` (`WHATSAPP_PROVIDER=cloud|mock`). Inbound opens a 24h `service window` on the lead; outbound is consent-gated (`NO_CONSENT` 409), session-only inside the window and template-only outside it (`WINDOW_CLOSED_NO_TEMPLATE` 422). Provider message ids deduped via `ExternalRef`. Secrets in `.env` only (`WHATSAPP_*`), never committed.
 - **WhatsApp automation (Phase 2b):** event-driven engine in `src/services/automation.service.ts` — pipeline events enqueue `ScheduledMessage` rows (idempotent via `dedupeKey`) into an outbox drained by a 5-minute `node-cron` tick (gated by `AUTOMATION_ENABLED`), separate from the daily 00:00 job. Sends are template-only, consent/window-gated (`MARKETING`-category templates additionally require `marketingConsent` — cancelled `NO_MARKETING_CONSENT` otherwise), and re-check stop conditions at dispatch time; a claimed row goes `PENDING → SENDING → SENT`, and failures mark `FAILED`/`CANCELLED` with a reason + admin notification. Seeded automations run as **sequences with reply-aware stops**: new-lead opener + a 24h follow-up; no-response 3-step nudge (0 / +24h / +48h); trial ladder (confirm + reminders at −24h / −1h / −5min "join now"); post-trial follow-up at +1h; plus no-show reschedule and student welcome. Follow-up steps are cancelled at dispatch if the parent replied on WhatsApp (inbound message after the sequence started) or the lead progressed. Group first-lesson fan-out remains reserved.
+- **Auth hardening:** JWT_SECRET is mandatory (boot fails without it); authenticate re-validates user status/role from the DB on every request; public self-registration removed — admins create users via /api/user.
+- **Mock webhook auth:** with WHATSAPP_PROVIDER=mock, POST /api/whatsapp/webhook requires header x-hub-signature-256 equal to WHATSAPP_APP_SECRET (set a strong random value even in mock); GET challenge is denied when WHATSAPP_VERIFY_TOKEN is unset.

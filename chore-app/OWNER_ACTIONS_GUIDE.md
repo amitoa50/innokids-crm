@@ -69,6 +69,7 @@
    - `JWT_SECRET` (אני אייצר חזק), `WEBHOOK_API_KEY` (אני אייצר חזק — נצטרך אותו שוב ב-Make!)
    - `ADMIN_EMAIL` / `ADMIN_PASSWORD` (שבחרת בשלב ב)
    - `WHATSAPP_PROVIDER=mock`, `AUTOMATION_ENABLED=false` — עד מסלול 3
+   - `WHATSAPP_APP_SECRET` (ערך אקראי חזק — מגן על ה-webhook הציבורי גם במצב mock) ו-`WHATSAPP_VERIFY_TOKEN`
 3. Deploy → נוודא `GET /api/health` עובד ותתחבר עם האדמין החדש
 4. נגדיר גיבוי יומי ל-SQLite
 

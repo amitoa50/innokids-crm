@@ -83,7 +83,7 @@ Channel notes:
 - **Calendar** — Google Calendar two-way sync using structured schedule fields + `ExternalRef` (system `GOOGLE_CALENDAR`) event IDs
 
 ## Auth and Role Boundaries
-- **Public** — `/api/auth/login`, `/api/auth/register`
+- **Public** — `/api/auth/login` (self-registration removed — admins create users via `/api/user`)
 - **API key** — `/api/lead-intake/webhook/:source`
 - **Provider-verified** — `/api/whatsapp/webhook` (verify token + `X-Hub-Signature-256`, not JWT)
 - **Authenticated (All roles)** — all other endpoints
