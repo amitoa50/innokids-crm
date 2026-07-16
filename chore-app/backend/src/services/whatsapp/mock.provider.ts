@@ -21,6 +21,7 @@ export class MockProvider implements WhatsAppProvider {
   }
 
   verifyChallenge(query: Record<string, unknown>): string | null {
+    if (!this.config.verifyToken) return null
     const token = query["hub.verify_token"]
     const challenge = query["hub.challenge"]
     if (token === this.config.verifyToken && typeof challenge === "string") return challenge

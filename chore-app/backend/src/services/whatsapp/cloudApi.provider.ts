@@ -53,6 +53,7 @@ export class CloudApiProvider implements WhatsAppProvider {
   }
 
   verifyChallenge(query: Record<string, unknown>): string | null {
+    if (!this.config.verifyToken) return null
     const mode = query["hub.mode"]
     const token = query["hub.verify_token"]
     const challenge = query["hub.challenge"]
