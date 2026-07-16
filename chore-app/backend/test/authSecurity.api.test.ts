@@ -3,7 +3,7 @@ import request from "supertest"
 import jwt from "jsonwebtoken"
 import app from "../src/app"
 import { getJwtSecret } from "../src/lib/jwtSecret"
-import { resetDb, createAdmin, prisma } from "./helpers/db"
+import { resetDb, createAdmin, createStaff, prisma } from "./helpers/db"
 import { tokenFor } from "./helpers/auth"
 
 beforeEach(async () => {
@@ -77,5 +77,41 @@ describe("login route", () => {
       .send({ email: "admin@test.local", password: "wrong-password" })
     expect(res.status).toBe(401)
     expect(res.body.error.code).toBe("UNAUTHORIZED")
+  })
+})
+
+describe("team list access", () => {
+  it("lets STAFF list users for assignment dropdowns", async () => {
+    await createAdmin()
+    const staff = await createStaff()
+
+    const res = await request(app)
+      .get("/api/user")
+      .set("Authorization", `Bearer ${tokenFor(staff)}`)
+    expect(res.status).toBe(200)
+    expect(res.body.length).toBe(2)
+  })
+
+  it("still blocks STAFF from creating users", async () => {
+    const staff = await createStaff()
+
+    const res = await request(app)
+      .post("/api/user")
+      .set("Authorization", `Bearer ${tokenFor(staff)}`)
+      .send({ email: "x@test.local", password: "pw123456", name: "לא מורשה" })
+    expect(res.status).toBe(403)
+  })
+})
+
+describe("hard-deleted user", () => {
+  it("rejects a valid token when the user row no longer exists", async () => {
+    const admin = await createAdmin()
+    const token = tokenFor(admin)
+    await prisma.user.delete({ where: { id: admin.id } })
+
+    const res = await request(app)
+      .get("/api/notification")
+      .set("Authorization", `Bearer ${token}`)
+    expect(res.status).toBe(401)
   })
 })

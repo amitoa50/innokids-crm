@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken"
+import { getJwtSecret } from "../../src/lib/jwtSecret"
 
 interface TokenUser {
   id: number
@@ -10,7 +11,7 @@ interface TokenUser {
 export function tokenFor(user: TokenUser): string {
   return jwt.sign(
     { userId: user.id, email: user.email, role: user.role },
-    process.env.JWT_SECRET!,
+    getJwtSecret(),
     { expiresIn: "1h" }
   )
 }
