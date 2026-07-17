@@ -190,8 +190,18 @@ export async function updateTrialStatus(
     include: { lead: { select: { id: true, fullName: true, childName: true, assignedToId: true } } }
   })
   if (!existing) return null
-  // Same status again = no-op: side effects (tasks, activity, automations) must not repeat
-  if (existing.status === status) return existing
+  // Same status again = no side effects may repeat. An outcome correction
+  // (e.g. GOOD -> BAD) is still persisted as a bare field update.
+  if (existing.status === status) {
+    if (outcome !== undefined && outcome !== existing.outcome) {
+      return prisma.trialLesson.update({
+        where: { id },
+        data: { outcome },
+        include: { lead: { select: { id: true, fullName: true, childName: true, assignedToId: true } } }
+      })
+    }
+    return existing
+  }
 
   const trial = await prisma.trialLesson.update({
     where: { id },

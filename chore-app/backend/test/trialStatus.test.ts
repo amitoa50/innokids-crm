@@ -33,4 +33,19 @@ describe("updateTrialStatus idempotency", () => {
     const tasks = await prisma.task.findMany({ where: { leadId: lead.id } })
     expect(tasks.length).toBe(1)
   })
+
+  it("same-status call with a new outcome persists the correction without side effects", async () => {
+    const admin = await createAdmin()
+    const lead = await createLead({ assignedToId: admin.id, status: "TRIAL_SCHEDULED" })
+    const trial = await createTrial(lead.id)
+
+    await updateTrialStatus(trial.id, "COMPLETED", "GOOD", admin.id)
+    const corrected = await updateTrialStatus(trial.id, "COMPLETED", "BAD", admin.id)
+
+    expect(corrected!.outcome).toBe("BAD")
+    const tasks = await prisma.task.findMany({ where: { leadId: lead.id, type: "FOLLOW_UP" } })
+    expect(tasks.length).toBe(1)
+    const activities = await prisma.activityLog.findMany({ where: { leadId: lead.id, type: "TRIAL_COMPLETED" } })
+    expect(activities.length).toBe(1)
+  })
 })
