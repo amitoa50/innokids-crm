@@ -12,6 +12,7 @@ const sendErrorStatus: Record<string, number> = {
   NO_CONSENT: 409,
   WINDOW_CLOSED_NO_TEMPLATE: 422,
   TEMPLATE_NOT_APPROVED: 422,
+  TEMPLATE_NOT_FOUND: 404,
   EMPTY_BODY: 400
 }
 
