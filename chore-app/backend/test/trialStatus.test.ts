@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest"
-import { updateTrialStatus } from "../src/services/trialLesson.service"
+import { updateTrialStatus, createTrialLesson } from "../src/services/trialLesson.service"
 import { prisma, resetDb, createAdmin, createLead, createTrial } from "./helpers/db"
 
 beforeEach(async () => {
@@ -47,5 +47,43 @@ describe("updateTrialStatus idempotency", () => {
     expect(tasks.length).toBe(1)
     const activities = await prisma.activityLog.findMany({ where: { leadId: lead.id, type: "TRIAL_COMPLETED" } })
     expect(activities.length).toBe(1)
+  })
+})
+
+describe("createTrialLesson validation", () => {
+  it("rejects a trial scheduled in the past", async () => {
+    const admin = await createAdmin()
+    const lead = await createLead()
+
+    const result = await createTrialLesson(
+      { leadId: lead.id, scheduledAt: new Date(Date.now() - 60 * 60 * 1000).toISOString() },
+      admin.id
+    )
+
+    expect(result).toEqual({ error: "TRIAL_IN_PAST" })
+    expect(await prisma.trialLesson.count()).toBe(0)
+    expect(await prisma.scheduledMessage.count()).toBe(0)
+  })
+
+  it("rejects a trial for a CLOSED or CONVERTED lead", async () => {
+    const admin = await createAdmin()
+    const lead = await createLead({ status: "CLOSED" })
+
+    const result = await createTrialLesson(
+      { leadId: lead.id, scheduledAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() },
+      admin.id
+    )
+
+    expect(result).toEqual({ error: "LEAD_NOT_ACTIVE" })
+    expect(await prisma.trialLesson.count()).toBe(0)
+  })
+
+  it("rejects a trial for a missing lead", async () => {
+    const admin = await createAdmin()
+    const result = await createTrialLesson(
+      { leadId: 999999, scheduledAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() },
+      admin.id
+    )
+    expect(result).toEqual({ error: "LEAD_NOT_FOUND" })
   })
 })

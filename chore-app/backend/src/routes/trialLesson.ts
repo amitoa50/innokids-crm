@@ -27,8 +27,18 @@ router.post("/", async (req: Request, res: Response) => {
     return
   }
 
-  const trial = await trialService.createTrialLesson(req.body, req.user!.userId)
-  res.status(201).json(trial)
+  const result = await trialService.createTrialLesson(req.body, req.user!.userId)
+
+  if (result && "error" in result) {
+    const status = result.error === "LEAD_NOT_FOUND" ? 404 : result.error === "TRIAL_IN_PAST" ? 400 : 409
+    res.status(status).json({
+      error: { code: result.error, message: `Trial creation rejected: ${result.error}` },
+      requestId: req.requestId
+    })
+    return
+  }
+
+  res.status(201).json(result)
 })
 
 router.put("/:id", async (req: Request, res: Response) => {

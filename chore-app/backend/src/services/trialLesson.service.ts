@@ -45,11 +45,22 @@ export async function listTrialLessons(filters: {
 }
 
 export async function createTrialLesson(data: CreateTrialData, performedById: number) {
+  const scheduledAt = new Date(data.scheduledAt)
+  if (isNaN(scheduledAt.getTime()) || scheduledAt <= new Date()) {
+    return { error: "TRIAL_IN_PAST" as const }
+  }
+
+  const lead = await prisma.lead.findUnique({ where: { id: data.leadId } })
+  if (!lead) return { error: "LEAD_NOT_FOUND" as const }
+  if (lead.status === "CLOSED" || lead.status === "CONVERTED") {
+    return { error: "LEAD_NOT_ACTIVE" as const }
+  }
+
   const trial = await prisma.trialLesson.create({
     data: {
       leadId: data.leadId,
       groupId: data.groupId,
-      scheduledAt: new Date(data.scheduledAt),
+      scheduledAt,
       teacherId: data.teacherId,
       notes: data.notes,
       meetingUrl: data.meetingUrl
