@@ -150,8 +150,15 @@ export async function dispatchDue() {
       const reason = `DISPATCH_ERROR: ${err instanceof Error ? err.message : String(err)}`
       console.error(`[automation] row ${row.id} failed:`, err)
       try {
-        await finalize(row.id, "FAILED", reason)
-        await notifyAdmins(`הודעה אוטומטית נכשלה (שגיאת מערכת) — שורה ${row.id}`)
+        // Guarded: only a row still mid-claim may be failed — a row already
+        // persisted as SENT stays SENT (the message was delivered)
+        const downgraded = await prisma.scheduledMessage.updateMany({
+          where: { id: row.id, status: "SENDING" },
+          data: { status: "FAILED", failureReason: reason }
+        })
+        if (downgraded.count === 1) {
+          await notifyAdmins(`הודעה אוטומטית נכשלה (שגיאת מערכת) — שורה ${row.id}`)
+        }
       } catch (finalizeErr) {
         console.error(`[automation] could not finalize row ${row.id}:`, finalizeErr)
       }

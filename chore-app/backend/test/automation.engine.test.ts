@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach } from "vitest"
+import { describe, it, expect, beforeEach, vi } from "vitest"
 import { enqueue, cancelForEntity, dispatchDue } from "../src/services/automation.service"
+import { logActivity } from "../src/services/activityLog.service"
 import {
   prisma,
   resetDb,
@@ -9,6 +10,13 @@ import {
   createScheduledRow,
   logWhatsAppMessage
 } from "./helpers/db"
+
+// Pass-through mock so a single test can make logActivity throw once
+// (pins the post-send failure path) while every other test keeps the real behavior.
+vi.mock("../src/services/activityLog.service", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/services/activityLog.service")>()
+  return { ...actual, logActivity: vi.fn(actual.logActivity) }
+})
 
 beforeEach(async () => {
   await resetDb()
@@ -464,5 +472,42 @@ describe("dispatch resilience", () => {
 
     const after = await prisma.scheduledMessage.findUnique({ where: { id: fresh.id } })
     expect(after!.status).toBe("SENDING")
+  })
+
+  it("keeps a SENT row SENT when a post-send step throws", async () => {
+    const admin = await createAdmin()
+    const lead = await createLead({ status: "NO_RESPONSE", marketingConsent: true })
+    const row = await createScheduledRow({
+      leadId: lead.id,
+      triggerEvent: "NO_RESPONSE_NUDGE",
+      entityType: "LEAD",
+      entityId: lead.id,
+      templateName: "no_response_nudge"
+    })
+    // The row is updated to SENT before the WHATSAPP_AUTO_SENT activity log runs —
+    // a throw there must not downgrade the row back to FAILED (the message was
+    // actually delivered). Target only that call: logActivity also runs earlier
+    // inside sendWhatsApp via logMessage, which must stay working.
+    const actual = await vi.importActual<typeof import("../src/services/activityLog.service")>(
+      "../src/services/activityLog.service"
+    )
+    vi.mocked(logActivity).mockImplementation(async (params) => {
+      if (params.type === "WHATSAPP_AUTO_SENT") throw new Error("activity log down")
+      return actual.logActivity(params)
+    })
+
+    await dispatchDue()
+
+    // restore the pass-through for the rest of the suite (mockReset re-installs
+    // the original implementation given to vi.fn)
+    vi.mocked(logActivity).mockReset()
+
+    const after = await prisma.scheduledMessage.findUniqueOrThrow({ where: { id: row.id } })
+    expect(after.status).toBe("SENT")
+    expect(after.failureReason).toBeNull()
+    expect(await outboundMessages(lead.id)).toHaveLength(1)
+    // no false "system failure" alert either — the guarded downgrade updated 0 rows
+    const notifications = await prisma.notification.findMany({ where: { userId: admin.id } })
+    expect(notifications).toHaveLength(0)
   })
 })
