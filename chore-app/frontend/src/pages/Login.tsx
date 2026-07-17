@@ -4,16 +4,13 @@ import { useNavigate } from "react-router-dom"
 import { toast } from "sonner"
 import { GraduationCap } from "lucide-react"
 import { useAuth } from "../hooks/useAuth"
-import client from "../api/client"
 
 interface LoginForm {
   email: string
   password: string
-  name: string
 }
 
 export default function Login() {
-  const [isRegister, setIsRegister] = useState(false)
   const [loading, setLoading] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
@@ -22,19 +19,11 @@ export default function Login() {
   const onSubmit = async (data: LoginForm) => {
     setLoading(true)
     try {
-      if (isRegister) {
-        await client.post("/auth/register", {
-          email: data.email,
-          password: data.password,
-          name: data.name,
-        })
-        toast.success("החשבון נוצר בהצלחה! מתחבר...")
-      }
       await login(data.email, data.password)
       toast.success("ברוך הבא!")
       navigate("/dashboard")
     } catch {
-      toast.error(isRegister ? "ההרשמה נכשלה" : "פרטי התחברות שגויים")
+      toast.error("פרטי התחברות שגויים")
     } finally {
       setLoading(false)
     }
@@ -52,23 +41,9 @@ export default function Login() {
         </div>
 
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <h2 className="text-lg font-semibold text-slate-800 mb-5">
-            {isRegister ? "יצירת חשבון" : "התחברות"}
-          </h2>
+          <h2 className="text-lg font-semibold text-slate-800 mb-5">התחברות</h2>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            {isRegister && (
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">שם</label>
-                <input
-                  {...register("name", isRegister ? { required: "שם הוא שדה חובה" } : {})}
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  placeholder="השם שלך"
-                />
-                {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
-              </div>
-            )}
-
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">אימייל</label>
               <input
@@ -96,18 +71,9 @@ export default function Login() {
               disabled={loading}
               className="w-full py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
             >
-              {loading ? "אנא המתן..." : isRegister ? "צור חשבון" : "התחבר"}
+              {loading ? "אנא המתן..." : "התחבר"}
             </button>
           </form>
-
-          <div className="mt-4 text-center">
-            <button
-              onClick={() => setIsRegister(!isRegister)}
-              className="text-sm text-indigo-600 hover:text-indigo-700"
-            >
-              {isRegister ? "כבר יש לך חשבון? התחבר" : "אין לך חשבון? הירשם"}
-            </button>
-          </div>
         </div>
       </div>
     </div>

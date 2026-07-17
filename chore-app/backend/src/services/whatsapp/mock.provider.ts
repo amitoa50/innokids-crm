@@ -3,7 +3,8 @@ import type { WhatsAppConfig } from "../../lib/whatsappConfig"
 import type { WhatsAppProvider, ParsedWebhook, SendResult, NormalizedInboundMessage, NormalizedStatusUpdate } from "./provider"
 
 // Local-dev adapter: no external calls. Sends return a fake id; webhooks accept a
-// simplified shape so inbound/status flows can be simulated with plain curl.
+// simplified shape so inbound/status flows can be simulated with
+// curl -H "x-hub-signature-256: $WHATSAPP_APP_SECRET".
 export class MockProvider implements WhatsAppProvider {
   constructor(private config: WhatsAppConfig) {}
 
@@ -20,14 +21,17 @@ export class MockProvider implements WhatsAppProvider {
   }
 
   verifyChallenge(query: Record<string, unknown>): string | null {
+    if (!this.config.verifyToken) return null
     const token = query["hub.verify_token"]
     const challenge = query["hub.challenge"]
     if (token === this.config.verifyToken && typeof challenge === "string") return challenge
     return null
   }
 
-  verifySignature(): boolean {
-    return true
+  // Even in mock mode the public webhook must not be open: require the shared
+  // app secret in the signature header. No secret configured -> deny all.
+  verifySignature(signatureHeader: string | undefined): boolean {
+    return !!this.config.appSecret && signatureHeader === this.config.appSecret
   }
 
   parseWebhook(payload: Record<string, unknown>): ParsedWebhook {

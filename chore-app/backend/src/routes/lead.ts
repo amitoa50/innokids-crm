@@ -4,6 +4,7 @@ import prisma from "../lib/prisma"
 import * as leadService from "../services/lead.service"
 import * as communicationService from "../services/communication.service"
 import { sendWhatsApp } from "../services/whatsapp/send.service"
+import { normalizePhone } from "../lib/phoneNormalizer"
 const router = Router()
 
 const sendErrorStatus: Record<string, number> = {
@@ -114,11 +115,24 @@ router.put("/:id", async (req: Request, res: Response) => {
     return
   }
 
+  let phoneNormalized: string | undefined
+  if (phone) {
+    phoneNormalized = normalizePhone(phone)
+    const duplicate = await prisma.lead.findUnique({ where: { phoneNormalized } })
+    if (duplicate && duplicate.id !== id) {
+      res.status(409).json({
+        error: { code: "DUPLICATE_PHONE", message: "Another lead already has this phone number" },
+        requestId: req.requestId
+      })
+      return
+    }
+  }
+
   const updated = await prisma.lead.update({
     where: { id },
     data: {
       ...(fullName && { fullName }),
-      ...(phone && { phone }),
+      ...(phone && { phone, phoneNormalized }),
       ...(email !== undefined && { email }),
       ...(learningFormat && { learningFormat }),
       ...(branch !== undefined && { branch }),

@@ -96,4 +96,10 @@ export async function logWhatsAppMessage(leadId: number, direction: "INBOUND" | 
   })
 }
 
+export async function createStaff() {
+  return prisma.user.create({
+    data: { email: "staff@test.local", name: "Test Staff", password: "hashed", role: "STAFF" }
+  })
+}
+
 export { prisma }

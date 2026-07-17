@@ -5,8 +5,9 @@ import prisma from "../lib/prisma"
 const router = Router()
 
 router.use(authenticate)
-router.use(requireAdmin)
 
+// Readable by any authenticated user — assignment dropdowns need the team list.
+// Mutations below stay admin-only.
 router.get("/", async (req: Request, res: Response) => {
   const users = await prisma.user.findMany({
     select: { id: true, email: true, name: true, role: true, status: true, createdAt: true }
@@ -14,7 +15,7 @@ router.get("/", async (req: Request, res: Response) => {
   res.json(users)
 })
 
-router.post("/", async (req: Request, res: Response) => {
+router.post("/", requireAdmin, async (req: Request, res: Response) => {
   const { email, password, name, role } = req.body
 
   if (!email || !password || !name) {
@@ -48,7 +49,7 @@ router.post("/", async (req: Request, res: Response) => {
   res.status(201).json(user)
 })
 
-router.put("/:id", async (req: Request, res: Response) => {
+router.put("/:id", requireAdmin, async (req: Request, res: Response) => {
   const id = Number(req.params.id)
   const { name, role, status } = req.body
 
@@ -74,7 +75,7 @@ router.put("/:id", async (req: Request, res: Response) => {
   res.json(user)
 })
 
-router.delete("/:id", async (req: Request, res: Response) => {
+router.delete("/:id", requireAdmin, async (req: Request, res: Response) => {
   const id = Number(req.params.id)
 
   if (id === req.user!.userId) {
