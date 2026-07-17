@@ -50,6 +50,15 @@ router.put("/:id/status", async (req: Request, res: Response) => {
   }
 
   const trial = await trialService.updateTrialStatus(id, status, outcome, req.user!.userId)
+
+  if (!trial) {
+    res.status(404).json({
+      error: { code: "NOT_FOUND", message: "Trial lesson not found" },
+      requestId: req.requestId
+    })
+    return
+  }
+
   res.json(trial)
 })
 
