@@ -399,3 +399,70 @@ describe("dispatch safety rails", () => {
     expect(await outboundMessages(lead.id)).toHaveLength(0)
   })
 })
+
+describe("dispatch resilience", () => {
+  it("a row that throws is FAILED and does not halt the rest of the batch", async () => {
+    const lead = await createLead({ status: "NO_RESPONSE", marketingConsent: true })
+    const trial = await createTrial(lead.id)
+    const bad = await createScheduledRow({
+      leadId: lead.id,
+      triggerEvent: "NO_RESPONSE_NUDGE",
+      entityType: "LEAD",
+      entityId: lead.id,
+      templateName: "no_response_nudge"
+    })
+    // corrupt the variables JSON so JSON.parse throws mid-loop
+    await prisma.scheduledMessage.update({ where: { id: bad.id }, data: { variables: "{not-json" } })
+    const good = await createScheduledRow({
+      leadId: lead.id,
+      triggerEvent: "TRIAL_CONFIRMATION",
+      entityType: "TRIAL_LESSON",
+      entityId: trial.id,
+      templateName: "trial_confirmation",
+      variables: ["הורה בדיקה", "1.1.2027", "17:00"]
+    })
+
+    await dispatchDue()
+
+    const badAfter = await prisma.scheduledMessage.findUnique({ where: { id: bad.id } })
+    const goodAfter = await prisma.scheduledMessage.findUnique({ where: { id: good.id } })
+    expect(badAfter!.status).toBe("FAILED")
+    expect(badAfter!.failureReason).toContain("DISPATCH_ERROR")
+    expect(goodAfter!.status).toBe("SENT")
+  })
+
+  it("reclaims a stale SENDING row and sends it", async () => {
+    const lead = await createLead({ status: "NO_RESPONSE", marketingConsent: true })
+    const stale = await createScheduledRow({
+      leadId: lead.id,
+      triggerEvent: "NO_RESPONSE_NUDGE",
+      entityType: "LEAD",
+      entityId: lead.id,
+      templateName: "no_response_nudge",
+      status: "SENDING",
+      updatedAt: new Date(Date.now() - 30 * 60 * 1000)
+    })
+
+    await dispatchDue()
+
+    const after = await prisma.scheduledMessage.findUnique({ where: { id: stale.id } })
+    expect(after!.status).toBe("SENT")
+  })
+
+  it("leaves a fresh SENDING claim alone", async () => {
+    const lead = await createLead({ status: "NO_RESPONSE", marketingConsent: true })
+    const fresh = await createScheduledRow({
+      leadId: lead.id,
+      triggerEvent: "NO_RESPONSE_NUDGE",
+      entityType: "LEAD",
+      entityId: lead.id,
+      templateName: "no_response_nudge",
+      status: "SENDING"
+    })
+
+    await dispatchDue()
+
+    const after = await prisma.scheduledMessage.findUnique({ where: { id: fresh.id } })
+    expect(after!.status).toBe("SENDING")
+  })
+})
