@@ -45,6 +45,15 @@ router.post("/", async (req: Request, res: Response) => {
   const student = await studentService.createStudent({
     leadId, childName, childBirthYear, learningFormat, branch, groupId, notes
   })
+
+  if ("error" in student) {
+    res.status(409).json({
+      error: { code: "LEAD_ALREADY_CONVERTED", message: "A student already exists for this lead" },
+      requestId: req.requestId
+    })
+    return
+  }
+
   res.status(201).json(student)
 })
 

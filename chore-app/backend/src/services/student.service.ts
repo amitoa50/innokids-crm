@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client"
 import prisma from "../lib/prisma"
 
 interface CreateStudentData {
@@ -64,21 +65,28 @@ export async function getStudent(id: number) {
 }
 
 export async function createStudent(data: CreateStudentData) {
-  return prisma.student.create({
-    data: {
-      leadId: data.leadId,
-      childName: data.childName,
-      childBirthYear: data.childBirthYear,
-      learningFormat: data.learningFormat,
-      branch: data.branch,
-      groupId: data.groupId,
-      notes: data.notes
-    },
-    include: {
-      lead: { select: { fullName: true } },
-      group: { select: { name: true } }
+  try {
+    return await prisma.student.create({
+      data: {
+        leadId: data.leadId,
+        childName: data.childName,
+        childBirthYear: data.childBirthYear,
+        learningFormat: data.learningFormat,
+        branch: data.branch,
+        groupId: data.groupId,
+        notes: data.notes
+      },
+      include: {
+        lead: { select: { fullName: true } },
+        group: { select: { name: true } }
+      }
+    })
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      return { error: "LEAD_ALREADY_CONVERTED" as const }
     }
-  })
+    throw e
+  }
 }
 
 export async function updateStudent(id: number, data: UpdateStudentData) {

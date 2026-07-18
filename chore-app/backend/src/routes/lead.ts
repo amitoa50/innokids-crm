@@ -54,7 +54,7 @@ router.get("/:id", async (req: Request, res: Response) => {
     include: {
       assignedTo: { select: { id: true, name: true } },
       tags: true,
-      students: true,
+      student: true,
       trialLessons: {
         include: {
           group: { select: { name: true } },

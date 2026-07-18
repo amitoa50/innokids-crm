@@ -64,6 +64,46 @@ describe("flexible conversion (feature 2)", () => {
   })
 })
 
+describe("atomic conversion (T5)", () => {
+  it("returns ALREADY_CONVERTED on a second sequential convert and creates no extra student", async () => {
+    const admin = await createAdmin()
+    const lead = await createLead()
+
+    const first = await convertLead(lead.id, { childName: "ילד", learningFormat: "ONLINE" }, admin.id)
+    expect(first && "error" in first).toBe(false)
+
+    const second = await convertLead(lead.id, { childName: "ילד אחר", learningFormat: "ONLINE" }, admin.id)
+    expect(second && "error" in second && second.error).toBe("ALREADY_CONVERTED")
+
+    expect(await prisma.student.count({ where: { leadId: lead.id } })).toBe(1)
+  })
+
+  it("concurrent double-convert creates exactly one student", async () => {
+    const admin = await createAdmin()
+    const lead = await createLead()
+
+    const [a, b] = await Promise.all([
+      convertLead(lead.id, { childName: "ילד", learningFormat: "ONLINE" }, admin.id),
+      convertLead(lead.id, { childName: "ילד", learningFormat: "ONLINE" }, admin.id)
+    ])
+
+    const winners = [a, b].filter((r) => r && !("error" in r))
+    const losers = [a, b].filter((r) => r && "error" in r)
+    expect(winners.length).toBe(1)
+    expect(losers.length).toBe(1)
+    expect(losers[0] && "error" in losers[0]! && losers[0]!.error).toBe("ALREADY_CONVERTED")
+
+    expect(await prisma.student.count({ where: { leadId: lead.id } })).toBe(1)
+    expect((await prisma.lead.findUnique({ where: { id: lead.id } }))!.status).toBe("CONVERTED")
+    // the losing racer must not have scheduled a second welcome sequence
+    expect(
+      await prisma.scheduledMessage.count({
+        where: { leadId: lead.id, dedupeKey: { startsWith: "STUDENT_WELCOME:" } }
+      })
+    ).toBe(1)
+  })
+})
+
 describe("free manual status transitions (feature 4a)", () => {
   it("allows an otherwise-illegal manual move", async () => {
     const admin = await createAdmin()
