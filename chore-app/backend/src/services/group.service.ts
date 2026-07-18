@@ -131,12 +131,17 @@ export async function addStudentToGroup(groupId: number, studentId: number, allo
     if (!allowOverfill) return { error: capacity.reason }
   }
 
+  const previous = await prisma.student.findUnique({ where: { id: studentId } })
   const student = await prisma.student.update({
     where: { id: studentId },
     data: { groupId }
   })
 
   await refreshGroupFullStatus(groupId)
+  // A transfer frees a seat in the source group — release it from FULL if needed.
+  if (previous?.groupId && previous.groupId !== groupId) {
+    await refreshGroupFullStatus(previous.groupId)
+  }
   return { student }
 }
 

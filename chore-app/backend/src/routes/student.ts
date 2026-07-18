@@ -60,6 +60,27 @@ router.post("/", async (req: Request, res: Response) => {
 router.put("/:id", async (req: Request, res: Response) => {
   const id = Number(req.params.id)
   const student = await studentService.updateStudent(id, req.body)
+
+  if (!student) {
+    res.status(404).json({
+      error: { code: "NOT_FOUND", message: "Student not found" },
+      requestId: req.requestId
+    })
+    return
+  }
+
+  if ("error" in student) {
+    const missing = student.error === "GROUP_NOT_FOUND"
+    res.status(missing ? 404 : 409).json({
+      error: {
+        code: student.error,
+        message: missing ? "Group not found" : "Group is at full capacity"
+      },
+      requestId: req.requestId
+    })
+    return
+  }
+
   res.json(student)
 })
 
