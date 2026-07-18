@@ -1,5 +1,7 @@
 # Plan 015 — Service Hardening (Automation Engine, Transactions, Integrity) Implementation Plan
 
+> **STATUS: DONE (2026-07-18).** All 8 tasks landed on `feat/service-hardening`. Execution log at the bottom.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Close package 2 of the 2026-07-15 review — the automation engine and service-layer correctness bugs that survive the deploy-blockers fixes: a single bad outbox row halts the whole dispatch batch and sticks in SENDING forever, missing templates get "sent", repeated trial-status updates duplicate side effects, trials can be scheduled in the past or for closed leads, lead conversion races can create two students, and group membership/capacity state can drift.
@@ -29,7 +31,7 @@
 - Modify: `chore-app/backend/test/helpers/db.ts` (add `updatedAt` passthrough to `createScheduledRow`)
 - Modify: `chore-app/backend/test/automation.engine.test.ts` (append a describe block)
 
-- [ ] **Step 1: Extend the test helper**
+- [x] **Step 1: Extend the test helper**
 
 In `test/helpers/db.ts`, add `updatedAt?: Date` to `ScheduledRowParams` and pass it through in the `create` call:
 ```ts
@@ -38,7 +40,7 @@ In `test/helpers/db.ts`, add `updatedAt?: Date` to `ScheduledRowParams` and pass
 ```
 (add the field to the interface too: `updatedAt?: Date`)
 
-- [ ] **Step 2: Write the failing tests**
+- [x] **Step 2: Write the failing tests**
 
 Append to `test/automation.engine.test.ts` (reuse its existing imports/helpers — read the file's top first and follow its patterns; it already imports `dispatchDue`, `prisma`, `resetDb`, `createLead`, `createScheduledRow`):
 ```ts
@@ -112,7 +114,7 @@ Note: the trigger/template names above must match seeded automation registry ent
 Run: `npx vitest run test/automation.engine.test.ts`
 Expected: throw-test FAILS (bad row stuck SENDING, good row never dispatched); reclaim-test FAILS (stays SENDING); fresh-claim test passes.
 
-- [ ] **Step 3: Implement in `automation.service.ts`**
+- [x] **Step 3: Implement in `automation.service.ts`**
 
 At the top of the file add:
 ```ts
@@ -147,12 +149,12 @@ Wrap the per-row body (everything after the successful claim, i.e. after `if (cl
 ```
 Keep all existing `continue`-based guard logic unchanged inside the try (a `continue` inside try/catch works normally in a for-loop).
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `npx vitest run test/automation.engine.test.ts` → all pass (existing + 3 new)
 Run: `npm test` → all pass (69 expected)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/services/automation.service.ts test/helpers/db.ts test/automation.engine.test.ts
@@ -170,7 +172,7 @@ git commit -m "fix(automation): isolate row failures, reclaim orphaned SENDING c
 
 Today `if (tpl && tpl.status !== "APPROVED")` means a template that doesn't exist at all skips the check and `[template:name]` is sent to the provider.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `test/sendTemplate.test.ts`:
 ```ts
@@ -202,7 +204,7 @@ describe("sendWhatsApp template validation", () => {
 ```
 Run: `npx vitest run test/sendTemplate.test.ts` — first test FAILS (send goes through, message logged).
 
-- [ ] **Step 2: Implement**
+- [x] **Step 2: Implement**
 
 In `send.service.ts` replace:
 ```ts
@@ -222,12 +224,12 @@ with:
 
 In `src/routes/lead.ts`, find the `sendErrorStatus` map (grep `sendErrorStatus`) and add `TEMPLATE_NOT_FOUND: 404` alongside the existing entries (match the map's style).
 
-- [ ] **Step 3: Run tests**
+- [x] **Step 3: Run tests**
 
 Run: `npx vitest run test/sendTemplate.test.ts` → 2 passed
 Run: `npm test` → all pass (71 expected). If any existing test relied on the `[template:x]` fallback, STOP and report DONE_WITH_CONCERNS with the failing test — do not weaken the fix.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/services/whatsapp/send.service.ts src/routes/lead.ts test/sendTemplate.test.ts
@@ -244,7 +246,7 @@ git commit -m "fix(whatsapp): reject sends for templates that do not exist" -m "
 
 Today calling COMPLETED (or NO_SHOW) twice re-runs every side effect: duplicate follow-up tasks, duplicate activity rows, repeated lead updates.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `test/trialStatus.test.ts`:
 ```ts
@@ -287,7 +289,7 @@ describe("updateTrialStatus idempotency", () => {
 ```
 Run it — both FAIL today (2 tasks / 2 activities).
 
-- [ ] **Step 2: Implement**
+- [x] **Step 2: Implement**
 
 In `updateTrialStatus`, BEFORE the `prisma.trialLesson.update`, add:
 ```ts
@@ -301,12 +303,12 @@ In `updateTrialStatus`, BEFORE the `prisma.trialLesson.update`, add:
 ```
 The rest of the function stays unchanged. Note the function's callers: check the route (`src/routes/trialLesson.ts`) — if it doesn't already handle a `null` return with a 404, add that handling using the standard error shape.
 
-- [ ] **Step 3: Run tests**
+- [x] **Step 3: Run tests**
 
 Run: `npx vitest run test/trialStatus.test.ts` → 2 passed
 Run: `npm test` → all pass (73 expected)
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/services/trialLesson.service.ts src/routes/trialLesson.ts test/trialStatus.test.ts
@@ -324,7 +326,7 @@ git commit -m "fix(trial): status updates are idempotent, no duplicated side eff
 
 Today a trial can be scheduled in the past (the "join now" automation fires immediately) or for a CLOSED/CONVERTED lead (`setLeadStatus` silently skips, but the trial + confirmations are still created).
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `test/trialStatus.test.ts` (add `createTrialLesson` to the service import):
 ```ts
@@ -368,7 +370,7 @@ describe("createTrialLesson validation", () => {
 ```
 Run — all three FAIL today (trial gets created / crashes on missing lead relation).
 
-- [ ] **Step 2: Implement**
+- [x] **Step 2: Implement**
 
 At the START of `createTrialLesson`, before the `prisma.trialLesson.create`:
 ```ts
@@ -398,12 +400,12 @@ The function's return type now includes error objects — update the route (`src
 ```
 (Adapt variable names to the actual handler — read it first. If TypeScript now complains at other call sites of `createTrialLesson`, fix those call sites to handle the error union; report them in your summary.)
 
-- [ ] **Step 3: Run tests**
+- [x] **Step 3: Run tests**
 
 Run: `npx vitest run test/trialStatus.test.ts` → 5 passed
 Run: `npm test` → all pass (76 expected). Existing tests that create trials via the service with future dates should be unaffected; if any used past dates, update those fixtures to future dates and note it.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/services/trialLesson.service.ts src/routes/trialLesson.ts test/trialStatus.test.ts
@@ -420,14 +422,14 @@ git commit -m "fix(trial): reject past-dated trials and trials for closed/conver
 - Modify: `chore-app/backend/src/routes/lead.ts` (PUT `/:id` — P2002 defense)
 - Create: `chore-app/backend/test/convertLead.test.ts`
 
-- [ ] **Step 1: Schema + migration**
+- [x] **Step 1: Schema + migration**
 
 In `schema.prisma`, Student model: change `leadId         Int` to `leadId         Int      @unique` (keep alignment).
 Run: `npx prisma migrate dev --name student-leadid-unique`
 If the migration fails because dev.db already has duplicate students per lead — STOP, report BLOCKED with the duplicate rows; do not delete data on your own.
 (The test DB is rebuilt by `prisma db push` in global-setup, so tests pick the constraint up automatically.)
 
-- [ ] **Step 2: Write the failing test**
+- [x] **Step 2: Write the failing test**
 
 Create `test/convertLead.test.ts`:
 ```ts
@@ -472,7 +474,7 @@ describe("convertLead atomicity", () => {
 ```
 Run — the concurrent test FAILS today (two students, or one raw P2002 crash once the constraint exists — either way not the clean result).
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 In `convertLead`, replace the student-create → group-refresh → lead-update sequence with a transaction + P2002 mapping (imports: add `Prisma` — `import { Prisma } from "@prisma/client"`):
 ```ts
@@ -528,12 +530,12 @@ In `src/routes/lead.ts` PUT `/:id` handler, wrap the `prisma.lead.update` call i
 ```
 (Add the `Prisma` import to lead.ts. No dedicated test for this race — the friendly-path 409 is already covered by `lead.api.test.ts`; this is defense-in-depth.)
 
-- [ ] **Step 4: Run tests**
+- [x] **Step 4: Run tests**
 
 Run: `npx vitest run test/convertLead.test.ts` → 2 passed
 Run: `npm test` → all pass (78 expected). `crmUsability.test.ts` conversion tests must stay green (FULL-group conversion, inline group creation) — if they break, the transaction changed behavior; fix the implementation, not the tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add prisma/schema.prisma prisma/migrations src/services/lead.service.ts src/routes/lead.ts test/convertLead.test.ts
@@ -551,7 +553,7 @@ git commit -m "fix(lead): atomic conversion with unique student-per-lead constra
 
 Today `DELETE /api/group/:id/student/:studentId` ignores `:id` — a request under the WRONG group still removes the student from their real group.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `test/groupIntegrity.test.ts`:
 ```ts
@@ -610,7 +612,7 @@ describe("remove student honors the group id", () => {
 ```
 Run — first test FAILS (200, student removed from the real group).
 
-- [ ] **Step 2: Implement**
+- [x] **Step 2: Implement**
 
 Service — change the signature to require the group and verify membership:
 ```ts
@@ -648,12 +650,12 @@ router.delete("/:id/student/:studentId", async (req: Request, res: Response) => 
 ```
 Check for other callers of `removeStudentFromGroup` (grep) and update them to the new signature; report any you find.
 
-- [ ] **Step 3: Run tests**
+- [x] **Step 3: Run tests**
 
 Run: `npx vitest run test/groupIntegrity.test.ts` → 2 passed
 Run: `npm test` → all pass (80 expected)
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/services/group.service.ts src/routes/group.ts test/groupIntegrity.test.ts
@@ -672,7 +674,7 @@ git commit -m "fix(group): student removal verifies membership in the addressed 
 
 Two gaps: (a) transferring a student via `addStudentToGroup` refreshes only the NEW group — a full old group stays `FULL` forever; (b) `updateStudent` can change `groupId` directly, bypassing the capacity check and both refreshes.
 
-- [ ] **Step 1: Write the failing tests**
+- [x] **Step 1: Write the failing tests**
 
 Append to `test/groupIntegrity.test.ts` (import `addStudentToGroup` from the service; import `updateStudent` from student.service):
 ```ts
@@ -722,7 +724,7 @@ describe("group status consistency", () => {
 ```
 Run — all three FAIL today.
 
-- [ ] **Step 2: Implement**
+- [x] **Step 2: Implement**
 
 `addStudentToGroup` — capture and refresh the previous group:
 ```ts
@@ -780,12 +782,12 @@ Watch for an import cycle: `group.service.ts` must NOT import from `student.serv
 
 Route: read `src/routes/student.ts` PUT handler; it must map the new returns — `null` → 404 NOT_FOUND, `{ error: "GROUP_FULL" | "GROUP_NOT_FOUND" }` → 409/404 with the standard shape. Adapt to its current structure and report what you changed. Also grep for other `updateStudent` callers and align them.
 
-- [ ] **Step 3: Run tests**
+- [x] **Step 3: Run tests**
 
 Run: `npx vitest run test/groupIntegrity.test.ts` → 5 passed
 Run: `npm test` → all pass (83 expected)
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/services/group.service.ts src/services/student.service.ts src/routes/student.ts test/groupIntegrity.test.ts
@@ -796,18 +798,18 @@ git commit -m "fix(group): capacity check and status refresh on transfers and di
 
 ### Task 8: Full verification + docs + PR
 
-- [ ] **Step 1: Full suite + builds**
+- [x] **Step 1: Full suite + builds**
 
 From `chore-app/backend/`: `npm test` (expect ~83 passed) and `npm run build` (clean).
 From `chore-app/frontend/`: `npm run build` (clean — backend-only changes, but verify).
 
-- [ ] **Step 2: Docs**
+- [x] **Step 2: Docs**
 
 In root `CLAUDE.md` Key Notes:
 - Update the group-capacity bullet to reflect reality: capacity enforced on assignment AND direct student edits; conversion deliberately allows overfill; transfers/removals refresh the old group's status.
 - In the WhatsApp automation bullet, add: a failed row is isolated (FAILED + admin notification) and orphaned SENDING claims are reclaimed after 15 minutes.
 
-- [ ] **Step 3: Commit docs, push, PR**
+- [x] **Step 3: Commit docs, push, PR**
 
 ```bash
 git add CLAUDE.md
@@ -822,7 +824,21 @@ gh pr create --title "fix: service hardening - automation resilience, transactio
 
 ## Verification checklist (after all tasks)
 
-- [ ] `npm test` green (~83 tests) from `chore-app/backend/`
-- [ ] Migration `student-leadid-unique` present in `prisma/migrations/`
-- [ ] Both builds clean
-- [ ] `git log --oneline master..` shows ~8 focused commits
+- [x] `npm test` green (~83 tests) from `chore-app/backend/`
+- [x] Migration `student-leadid-unique` present in `prisma/migrations/`
+- [x] Both builds clean
+- [x] `git log --oneline master..` shows ~8 focused commits
+
+---
+
+## Execution log (2026-07-18)
+
+All 8 tasks implemented TDD-style on `feat/service-hardening`. Deltas from the plan as written:
+
+- **Test counts:** the plan's predictions (80/83) were stale — actual progression: 66 at branch start → 90 at close (T4 gained an extra 4b reschedule-guard task; T5 added 4 tests incl. a concurrent-race test; T6 added a third test for `STUDENT_NOT_FOUND` 404; T7 added 3).
+- **Task 5:** `prisma migrate dev` is interactive and fails in the agent shell — migration `20260718000000_unique_student_lead` was generated via `prisma migrate diff --script` + manual folder + `prisma migrate deploy`. Same SQL, same result. The tx threads a `client` param through `createGroup`/`refreshGroupFullStatus`/`logActivity` (first `$transaction` in the codebase); `POST /api/student` also got P2002 → `409 LEAD_ALREADY_CONVERTED`. Lead relation became singular (`student`), updated in `routes/lead.ts` include + frontend `types.ts`.
+- **Task 6:** route error message differentiates the two failure codes; grep confirmed the route is the only `removeStudentFromGroup` caller.
+- **Task 7:** `updateStudent` also returns `null` → 404 for a missing student (previously an unhandled Prisma throw → 500).
+- **Task 8:** CLAUDE.md group-capacity bullet rewritten (assignment + direct-edit enforcement, deliberate conversion overfill, source-group release, membership-verified removal), automation bullet extended (row isolation + 15-min reclaim), new atomic-conversion bullet added.
+
+Final: 90/90 tests, tsc clean, both builds clean.
