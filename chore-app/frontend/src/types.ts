@@ -45,7 +45,7 @@ export interface Lead {
   whatsappWindowExpiresAt: string | null
   createdAt: string
   updatedAt: string
-  students?: Student[]
+  student?: Student | null
   trialLessons?: TrialLesson[]
   tasks?: Task[]
   activityLogs?: ActivityLog[]

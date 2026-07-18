@@ -12,6 +12,7 @@ const sendErrorStatus: Record<string, number> = {
   NO_CONSENT: 409,
   WINDOW_CLOSED_NO_TEMPLATE: 422,
   TEMPLATE_NOT_APPROVED: 422,
+  TEMPLATE_NOT_FOUND: 404,
   EMPTY_BODY: 400
 }
 
@@ -53,7 +54,7 @@ router.get("/:id", async (req: Request, res: Response) => {
     include: {
       assignedTo: { select: { id: true, name: true } },
       tags: true,
-      students: true,
+      student: true,
       trialLessons: {
         include: {
           group: { select: { name: true } },

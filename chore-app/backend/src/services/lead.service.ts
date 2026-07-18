@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client"
 import prisma from "../lib/prisma"
 import { normalizePhone } from "../lib/phoneNormalizer"
 import { canTransition } from "../lib/pipeline"
@@ -239,47 +240,65 @@ export async function convertLead(
   if (!lead) return null
   if (lead.status === "CONVERTED") return { error: "ALREADY_CONVERTED" as const }
 
-  // Resolve the target group: create a new one on the fly, or use an existing id.
   // A full group is NOT blocked — staff decides who goes where (over-capacity allowed).
-  let targetGroupId = studentData.groupId
-  if (studentData.newGroup) {
-    const created = await createGroup(studentData.newGroup)
-    targetGroupId = created.id
-  } else if (studentData.groupId) {
+  if (!studentData.newGroup && studentData.groupId) {
     const capacity = await checkGroupCapacity(studentData.groupId)
     if (!capacity.ok && capacity.reason === "GROUP_NOT_FOUND") {
       return { error: "GROUP_NOT_FOUND" as const }
     }
   }
 
-  const student = await prisma.student.create({
-    data: {
-      leadId: id,
-      childName: studentData.childName,
-      childBirthYear: studentData.childBirthYear,
-      learningFormat: studentData.learningFormat,
-      branch: studentData.branch,
-      groupId: targetGroupId
-    }
-  })
+  // All conversion writes commit together or not at all. The unique index on
+  // Student.leadId is the race backstop: a concurrent convert that slips past
+  // the status guard above loses here with P2002 instead of duplicating the student.
+  let student
+  try {
+    student = await prisma.$transaction(async (tx) => {
+      let targetGroupId = studentData.groupId
+      if (studentData.newGroup) {
+        const created = await createGroup(studentData.newGroup, tx)
+        targetGroupId = created.id
+      }
 
-  if (targetGroupId) {
-    await refreshGroupFullStatus(targetGroupId)
+      const created = await tx.student.create({
+        data: {
+          leadId: id,
+          childName: studentData.childName,
+          childBirthYear: studentData.childBirthYear,
+          learningFormat: studentData.learningFormat,
+          branch: studentData.branch,
+          groupId: targetGroupId
+        }
+      })
+
+      if (targetGroupId) {
+        await refreshGroupFullStatus(targetGroupId, tx)
+      }
+
+      await tx.lead.update({
+        where: { id },
+        data: { status: "CONVERTED" }
+      })
+
+      await logActivity({
+        type: "LEAD_CONVERTED",
+        description: `ליד הומר לתלמיד: ${studentData.childName}`,
+        leadId: id,
+        studentId: created.id,
+        performedById
+      }, tx)
+
+      return created
+    })
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      return { error: "ALREADY_CONVERTED" as const }
+    }
+    throw e
   }
 
-  await prisma.lead.update({
-    where: { id },
-    data: { status: "CONVERTED" }
-  })
-
-  await logActivity({
-    type: "LEAD_CONVERTED",
-    description: `ליד הומר לתלמיד: ${studentData.childName}`,
-    leadId: id,
-    studentId: student.id,
-    performedById
-  })
-
+  // Outbox write stays outside the transaction: no welcome sequence may be
+  // scheduled for a conversion that rolled back.
   await enqueue("STUDENT_WELCOME", {
     leadId: id,
     entityType: "STUDENT",

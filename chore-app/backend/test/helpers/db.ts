@@ -65,6 +65,7 @@ interface ScheduledRowParams {
   dueAt?: Date
   createdAt?: Date
   status?: string
+  updatedAt?: Date
 }
 
 // Insert an outbox row directly, with an explicit past createdAt by default so
@@ -81,7 +82,8 @@ export async function createScheduledRow(params: ScheduledRowParams) {
       dedupeKey: `${params.triggerEvent}:${params.entityType}:${params.entityId}`,
       entityType: params.entityType,
       entityId: params.entityId,
-      createdAt: params.createdAt ?? new Date(Date.now() - 60 * 60 * 1000)
+      createdAt: params.createdAt ?? new Date(Date.now() - 60 * 60 * 1000),
+      ...(params.updatedAt && { updatedAt: params.updatedAt })
     }
   })
 }

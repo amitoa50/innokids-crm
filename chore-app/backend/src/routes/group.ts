@@ -84,9 +84,23 @@ router.post("/:id/student", async (req: Request, res: Response) => {
 })
 
 router.delete("/:id/student/:studentId", async (req: Request, res: Response) => {
+  const groupId = Number(req.params.id)
   const studentId = Number(req.params.studentId)
-  const student = await groupService.removeStudentFromGroup(studentId)
-  res.json(student)
+  const result = await groupService.removeStudentFromGroup(groupId, studentId)
+
+  if ("error" in result) {
+    const missing = result.error === "STUDENT_NOT_FOUND"
+    res.status(missing ? 404 : 409).json({
+      error: {
+        code: result.error,
+        message: missing ? "Student not found" : "Student is not a member of this group"
+      },
+      requestId: req.requestId
+    })
+    return
+  }
+
+  res.json(result.student)
 })
 
 export default router
