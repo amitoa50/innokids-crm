@@ -140,15 +140,16 @@ export async function addStudentToGroup(groupId: number, studentId: number, allo
   return { student }
 }
 
-export async function removeStudentFromGroup(studentId: number) {
+export async function removeStudentFromGroup(groupId: number, studentId: number) {
   const current = await prisma.student.findUnique({ where: { id: studentId } })
+  if (!current) return { error: "STUDENT_NOT_FOUND" as const }
+  if (current.groupId !== groupId) return { error: "NOT_IN_GROUP" as const }
+
   const student = await prisma.student.update({
     where: { id: studentId },
     data: { groupId: null }
   })
 
-  if (current?.groupId) {
-    await refreshGroupFullStatus(current.groupId)
-  }
-  return student
+  await refreshGroupFullStatus(groupId)
+  return { student }
 }
