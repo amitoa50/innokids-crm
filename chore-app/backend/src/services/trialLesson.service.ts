@@ -129,6 +129,16 @@ export async function createTrialLesson(data: CreateTrialData, performedById: nu
 }
 
 export async function updateTrialLesson(id: number, data: Partial<CreateTrialData>) {
+  if (data.scheduledAt) {
+    const scheduledAt = new Date(data.scheduledAt)
+    if (isNaN(scheduledAt.getTime()) || scheduledAt <= new Date()) {
+      return { error: "TRIAL_IN_PAST" as const }
+    }
+  }
+
+  const existing = await prisma.trialLesson.findUnique({ where: { id } })
+  if (!existing) return null
+
   const trial = await prisma.trialLesson.update({
     where: { id },
     data: {

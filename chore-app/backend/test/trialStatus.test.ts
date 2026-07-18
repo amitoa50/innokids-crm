@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest"
-import { updateTrialStatus, createTrialLesson } from "../src/services/trialLesson.service"
+import { updateTrialStatus, createTrialLesson, updateTrialLesson } from "../src/services/trialLesson.service"
 import { prisma, resetDb, createAdmin, createLead, createTrial } from "./helpers/db"
 
 beforeEach(async () => {
@@ -85,5 +85,27 @@ describe("createTrialLesson validation", () => {
       admin.id
     )
     expect(result).toEqual({ error: "LEAD_NOT_FOUND" })
+  })
+})
+
+describe("updateTrialLesson validation", () => {
+  it("rejects a reschedule into the past", async () => {
+    const admin = await createAdmin()
+    const lead = await createLead()
+    const trial = await createTrial(lead.id)
+
+    const result = await updateTrialLesson(trial.id, {
+      scheduledAt: new Date(Date.now() - 60 * 60 * 1000).toISOString()
+    })
+
+    expect(result).toEqual({ error: "TRIAL_IN_PAST" })
+    const after = await prisma.trialLesson.findUnique({ where: { id: trial.id } })
+    expect(after!.scheduledAt.getTime()).toBe(trial.scheduledAt.getTime())
+  })
+
+  it("returns null for a missing trial id", async () => {
+    await createAdmin()
+    const result = await updateTrialLesson(999999, { notes: "x" })
+    expect(result).toBeNull()
   })
 })
