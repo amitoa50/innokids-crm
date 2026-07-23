@@ -38,15 +38,15 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-slate-800">דשבורד</h1>
+      <h1 className="text-2xl font-[var(--font-serif)] font-semibold text-[var(--color-text-primary)]">דשבורד</h1>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="bg-white rounded-xl border border-slate-200 p-5">
+          <div key={label} className="card">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-slate-500">{label}</p>
-                <p className="text-2xl font-bold text-slate-800 mt-1">{value}</p>
+                <p className="stat-tile__label">{label}</p>
+                <p className="stat-tile__value">{value}</p>
               </div>
               <div className={`p-3 rounded-lg ${color}`}>
                 <Icon size={22} />
@@ -58,55 +58,55 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Pipeline */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <h3 className="font-semibold text-slate-800 mb-4">צנרת מכירות</h3>
+        <div className="card">
+          <h3 className="font-[var(--font-serif)] font-semibold text-[var(--color-text-primary)] mb-4">צנרת מכירות</h3>
           {pipeline && Object.entries(pipeline).length > 0 ? (
             <div className="space-y-3">
               {Object.entries(pipeline).map(([status, count]) => (
                 <div key={status} className="flex items-center justify-between">
                   <StatusBadge status={status} />
-                  <span className="text-sm font-semibold text-slate-700">{count}</span>
+                  <span className="text-sm font-semibold text-[var(--color-text-primary)]">{count}</span>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-slate-400">אין לידים עדיין</p>
+            <p className="empty-state__message">אין לידים עדיין</p>
           )}
         </div>
 
         {/* Sources */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5">
-          <h3 className="font-semibold text-slate-800 mb-4">לידים לפי מקור</h3>
+        <div className="card">
+          <h3 className="font-[var(--font-serif)] font-semibold text-[var(--color-text-primary)] mb-4">לידים לפי מקור</h3>
           {sources && Object.entries(sources).length > 0 ? (
             <div className="space-y-3">
               {Object.entries(sources).map(([source, count]) => (
                 <div key={source} className="flex items-center justify-between">
                   <StatusBadge status={source} />
-                  <span className="text-sm font-semibold text-slate-700">{count}</span>
+                  <span className="text-sm font-semibold text-[var(--color-text-primary)]">{count}</span>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-slate-400">אין נתונים</p>
+            <p className="empty-state__message">אין נתונים</p>
           )}
         </div>
       </div>
 
       {/* Upcoming follow-ups */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5">
-        <h3 className="font-semibold text-slate-800 mb-4">מעקבים קרובים</h3>
+      <div className="card">
+        <h3 className="font-[var(--font-serif)] font-semibold text-[var(--color-text-primary)] mb-4">מעקבים קרובים</h3>
         {upcomingFollowUps.length > 0 ? (
           <div className="space-y-2">
             {upcomingFollowUps.map((lead) => (
-              <div key={lead.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+              <div key={lead.id} className="flex items-center justify-between py-2 border-b border-[var(--color-border)] last:border-0">
                 <div>
-                  <p className="text-sm font-medium text-slate-700">{lead.fullName}</p>
-                  <p className="text-xs text-slate-400">{lead.phone}</p>
+                  <p className="text-sm font-medium text-[var(--color-text-primary)]">{lead.fullName}</p>
+                  <p className="text-xs text-[var(--color-text-secondary)]">{lead.phone}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <StatusBadge status={lead.status} />
                   {lead.nextFollowUpDate && (
-                    <span className="text-xs text-slate-500">
+                    <span className="text-xs text-[var(--color-text-secondary)]">
                       {new Date(lead.nextFollowUpDate).toLocaleDateString("he-IL")}
                     </span>
                   )}
@@ -115,7 +115,7 @@ export default function Dashboard() {
             ))}
           </div>
         ) : (
-          <p className="text-sm text-slate-400">אין מעקבים מתוכננים</p>
+          <p className="empty-state__message">אין מעקבים מתוכננים</p>
         )}
       </div>
     </div>
