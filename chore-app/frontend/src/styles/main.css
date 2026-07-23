@@ -10,3 +10,8 @@
 @import "./cmps/badge.css";
 @import "./cmps/timeline.css";
 @import "./cmps/conversation.css";
+@import "./cmps/button.css";
+@import "./cmps/card.css";
+@import "./cmps/nav.css";
+@import "./cmps/modal.css";
+@import "./cmps/empty-state.css";

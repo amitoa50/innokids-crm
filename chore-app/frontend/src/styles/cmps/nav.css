@@ -1,0 +1,22 @@
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 0.625rem 0.75rem;
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-nav-text);
+  transition: background-color 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    background-color: var(--color-nav-bg-hover);
+    color: var(--color-nav-text-active);
+  }
+}
+
+.nav-item--active {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--color-gold) 16%, transparent), transparent);
+  color: var(--color-nav-text-active);
+  border-inline-start: 2px solid var(--color-gold);
+}
