@@ -1,5 +1,7 @@
 import express from "express"
 import cors from "cors"
+import helmet from "helmet"
+import rateLimit from "express-rate-limit"
 import path from "path"
 import fs from "fs"
 import { requestIdMiddleware } from "./lib/requestId"
@@ -21,6 +23,14 @@ import calendarRoutes from "./routes/calendar"
 
 const app = express()
 
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.AUTH_RATE_LIMIT_MAX) || 20,
+  standardHeaders: true,
+  legacyHeaders: false
+})
+
+app.use(helmet())
 app.use(cors({ origin: process.env.CORS_ORIGIN || "http://localhost:5173" }))
 app.use(requestIdMiddleware)
 app.use(express.json({ verify: (req, _res, buf) => { (req as express.Request).rawBody = buf } }))
@@ -29,7 +39,7 @@ app.get("/api/health", (req, res) => {
   res.json({ ok: true, requestId: req.requestId })
 })
 
-app.use("/api/auth", authRoutes)
+app.use("/api/auth", authLimiter, authRoutes)
 app.use("/api/lead", leadRoutes)
 app.use("/api/lead-intake", leadIntakeRoutes)
 app.use("/api/student", studentRoutes)
