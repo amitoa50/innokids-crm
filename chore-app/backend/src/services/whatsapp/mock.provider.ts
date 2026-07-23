@@ -1,4 +1,4 @@
-import { randomUUID } from "crypto"
+import { randomUUID, timingSafeEqual } from "crypto"
 import type { WhatsAppConfig } from "../../lib/whatsappConfig"
 import type { WhatsAppProvider, ParsedWebhook, SendResult, NormalizedInboundMessage, NormalizedStatusUpdate } from "./provider"
 
@@ -30,8 +30,13 @@ export class MockProvider implements WhatsAppProvider {
 
   // Even in mock mode the public webhook must not be open: require the shared
   // app secret in the signature header. No secret configured -> deny all.
+  // Buffer-length check + timingSafeEqual avoids leaking a match via response timing.
   verifySignature(signatureHeader: string | undefined): boolean {
-    return !!this.config.appSecret && signatureHeader === this.config.appSecret
+    if (!this.config.appSecret || !signatureHeader) return false
+    const expected = Buffer.from(this.config.appSecret)
+    const actual = Buffer.from(signatureHeader)
+    if (expected.length !== actual.length) return false
+    return timingSafeEqual(expected, actual)
   }
 
   parseWebhook(payload: Record<string, unknown>): ParsedWebhook {
