@@ -8,16 +8,17 @@ router.use(authenticate)
 router.get("/dashboard", async (_req: Request, res: Response) => {
   const now = new Date()
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1)
 
   const [newLeads, trialsScheduled, conversions, activeStudents] = await Promise.all([
     prisma.lead.count({
       where: { createdAt: { gte: startOfMonth } }
     }),
     prisma.trialLesson.count({
-      where: { status: "SCHEDULED", scheduledAt: { gte: startOfMonth } }
+      where: { status: "SCHEDULED", scheduledAt: { gte: startOfMonth, lt: endOfMonth } }
     }),
-    prisma.lead.count({
-      where: { status: "CONVERTED", updatedAt: { gte: startOfMonth } }
+    prisma.activityLog.count({
+      where: { type: "LEAD_CONVERTED", createdAt: { gte: startOfMonth, lt: endOfMonth } }
     }),
     prisma.student.count({
       where: { status: "ACTIVE" }
