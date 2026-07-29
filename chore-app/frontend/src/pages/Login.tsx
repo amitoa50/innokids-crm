@@ -30,18 +30,18 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[var(--color-nav-bg)] flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-indigo-600 rounded-xl mb-4">
-            <GraduationCap className="text-white" size={28} />
+          <div className="inline-flex items-center justify-center w-14 h-14 bg-[var(--color-gold)] rounded-xl mb-4">
+            <GraduationCap className="text-[var(--color-nav-bg)]" size={28} />
           </div>
-          <h1 className="text-2xl font-bold text-slate-800">INNOKIDS</h1>
-          <p className="text-slate-500 text-sm mt-1">מערכת ניהול לידים ותלמידים</p>
+          <h1 className="text-2xl font-[var(--font-serif)] font-semibold text-white">INNOKIDS</h1>
+          <p className="text-[var(--color-nav-text)] text-sm mt-1">מערכת ניהול לידים ותלמידים</p>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <h2 className="text-lg font-semibold text-slate-800 mb-5">התחברות</h2>
+        <div className="card">
+          <h2 className="text-lg font-[var(--font-serif)] font-semibold text-[var(--color-text-primary)] mb-5">התחברות</h2>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div>
@@ -49,7 +49,7 @@ export default function Login() {
               <input
                 type="email"
                 {...register("email", { required: "אימייל הוא שדה חובה" })}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)] focus:border-transparent"
                 placeholder="you@innokids.co.il"
               />
               {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
@@ -60,7 +60,7 @@ export default function Login() {
               <input
                 type="password"
                 {...register("password", { required: "סיסמה היא שדה חובה" })}
-                className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-gold)] focus:border-transparent"
                 placeholder="הזן סיסמה"
               />
               {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
@@ -69,7 +69,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+              className="btn btn--primary w-full py-2.5"
             >
               {loading ? "אנא המתן..." : "התחבר"}
             </button>
