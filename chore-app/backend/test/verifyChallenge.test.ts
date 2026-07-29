@@ -26,3 +26,26 @@ describe("verifyChallenge fail-closed", () => {
     expect(echo).toBe("echo-me")
   })
 })
+
+describe("verifySignature (timing-safe)", () => {
+  it("accepts a signature that matches the configured secret", () => {
+    const provider = new MockProvider(configWith("innokids_verify"))
+    expect(provider.verifySignature("test-app-secret")).toBe(true)
+  })
+
+  it("rejects a same-length signature that does not match", () => {
+    const provider = new MockProvider(configWith("innokids_verify"))
+    expect(provider.verifySignature("wrong-app-secre1")).toBe(false)
+  })
+
+  it("rejects a different-length signature without throwing", () => {
+    const provider = new MockProvider(configWith("innokids_verify"))
+    expect(() => provider.verifySignature("short")).not.toThrow()
+    expect(provider.verifySignature("short")).toBe(false)
+  })
+
+  it("rejects when no signature header is present", () => {
+    const provider = new MockProvider(configWith("innokids_verify"))
+    expect(provider.verifySignature(undefined)).toBe(false)
+  })
+})

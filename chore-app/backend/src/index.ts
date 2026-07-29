@@ -11,38 +11,19 @@ import prisma from "./lib/prisma"
 import app from "./app"
 import { setLeadStatus } from "./services/lead.service"
 import { enqueue, dispatchDue } from "./services/automation.service"
+import { notifyOverdueFollowUps } from "./services/followUp.service"
 import { seedAdmin } from "./lib/adminSeed"
 import { seedAutomation } from "./lib/automationSeed"
 import { seedTags } from "./services/tag.service"
 import { NO_RESPONSE_AGING_DAYS } from "./lib/pipeline"
 
-// Daily cron job at midnight: check overdue follow-ups and notify staff
+// Daily cron job at midnight Israel time: check overdue follow-ups and notify staff
 cron.schedule("0 0 * * *", async () => {
   try {
     const now = new Date()
-    const overdueLeads = await prisma.lead.findMany({
-      where: {
-        nextFollowUpDate: { lt: now },
-        status: {
-          notIn: ["CLOSED", "CONVERTED"]
-        },
-        assignedToId: { not: null }
-      }
-    })
-
-    for (const lead of overdueLeads) {
-      if (lead.assignedToId) {
-        await prisma.notification.create({
-          data: {
-            message: `מעקב באיחור: ${lead.fullName} (${lead.phone})`,
-            userId: lead.assignedToId
-          }
-        })
-      }
-    }
-
-    if (overdueLeads.length > 0) {
-      console.log(`Notified about ${overdueLeads.length} overdue follow-up(s)`)
+    const notified = await notifyOverdueFollowUps(now)
+    if (notified > 0) {
+      console.log(`Notified about ${notified} overdue follow-up(s)`)
     }
 
     // Auto-stage: advance completed-trial leads with a passed follow-up date to FOLLOW_UP_AFTER_TRIAL
@@ -80,7 +61,7 @@ cron.schedule("0 0 * * *", async () => {
   } catch (err) {
     console.error("Cron job error:", err)
   }
-})
+}, { timezone: "Asia/Jerusalem" })
 
 // Automation dispatch tick: drain the ScheduledMessage outbox every 5 minutes.
 // Gated by AUTOMATION_ENABLED; independent of the daily job above.
