@@ -27,14 +27,41 @@ router.post("/", async (req: Request, res: Response) => {
     return
   }
 
-  const trial = await trialService.createTrialLesson(req.body, req.user!.userId)
-  res.status(201).json(trial)
+  const result = await trialService.createTrialLesson(req.body, req.user!.userId)
+
+  if (result && "error" in result) {
+    const status = result.error === "LEAD_NOT_FOUND" ? 404 : result.error === "TRIAL_IN_PAST" ? 400 : 409
+    res.status(status).json({
+      error: { code: result.error, message: `Trial creation rejected: ${result.error}` },
+      requestId: req.requestId
+    })
+    return
+  }
+
+  res.status(201).json(result)
 })
 
 router.put("/:id", async (req: Request, res: Response) => {
   const id = Number(req.params.id)
-  const trial = await trialService.updateTrialLesson(id, req.body)
-  res.json(trial)
+  const result = await trialService.updateTrialLesson(id, req.body)
+
+  if (!result) {
+    res.status(404).json({
+      error: { code: "NOT_FOUND", message: "Trial lesson not found" },
+      requestId: req.requestId
+    })
+    return
+  }
+
+  if ("error" in result) {
+    res.status(400).json({
+      error: { code: result.error, message: `Trial update rejected: ${result.error}` },
+      requestId: req.requestId
+    })
+    return
+  }
+
+  res.json(result)
 })
 
 router.put("/:id/status", async (req: Request, res: Response) => {
@@ -50,6 +77,15 @@ router.put("/:id/status", async (req: Request, res: Response) => {
   }
 
   const trial = await trialService.updateTrialStatus(id, status, outcome, req.user!.userId)
+
+  if (!trial) {
+    res.status(404).json({
+      error: { code: "NOT_FOUND", message: "Trial lesson not found" },
+      requestId: req.requestId
+    })
+    return
+  }
+
   res.json(trial)
 })
 

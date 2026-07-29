@@ -1,4 +1,6 @@
+import { Prisma } from "@prisma/client"
 import prisma from "../lib/prisma"
+import { checkGroupCapacity, refreshGroupFullStatus } from "./group.service"
 
 interface CreateStudentData {
   leadId: number
@@ -64,25 +66,43 @@ export async function getStudent(id: number) {
 }
 
 export async function createStudent(data: CreateStudentData) {
-  return prisma.student.create({
-    data: {
-      leadId: data.leadId,
-      childName: data.childName,
-      childBirthYear: data.childBirthYear,
-      learningFormat: data.learningFormat,
-      branch: data.branch,
-      groupId: data.groupId,
-      notes: data.notes
-    },
-    include: {
-      lead: { select: { fullName: true } },
-      group: { select: { name: true } }
+  try {
+    return await prisma.student.create({
+      data: {
+        leadId: data.leadId,
+        childName: data.childName,
+        childBirthYear: data.childBirthYear,
+        learningFormat: data.learningFormat,
+        branch: data.branch,
+        groupId: data.groupId,
+        notes: data.notes
+      },
+      include: {
+        lead: { select: { fullName: true } },
+        group: { select: { name: true } }
+      }
+    })
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      return { error: "LEAD_ALREADY_CONVERTED" as const }
     }
-  })
+    throw e
+  }
 }
 
 export async function updateStudent(id: number, data: UpdateStudentData) {
-  return prisma.student.update({
+  const current = await prisma.student.findUnique({ where: { id } })
+  if (!current) return null
+
+  // A direct edit respects capacity like a regular assignment (conversion is the
+  // only deliberate overfill path); clearing the group is always allowed.
+  const groupChanging = data.groupId !== undefined && data.groupId !== current.groupId
+  if (groupChanging && data.groupId != null) {
+    const capacity = await checkGroupCapacity(data.groupId)
+    if (!capacity.ok) return { error: capacity.reason }
+  }
+
+  const student = await prisma.student.update({
     where: { id },
     data,
     include: {
@@ -90,4 +110,11 @@ export async function updateStudent(id: number, data: UpdateStudentData) {
       group: { select: { name: true } }
     }
   })
+
+  if (groupChanging) {
+    if (data.groupId != null) await refreshGroupFullStatus(data.groupId)
+    if (current.groupId) await refreshGroupFullStatus(current.groupId)
+  }
+
+  return student
 }

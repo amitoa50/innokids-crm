@@ -1,4 +1,7 @@
+import { Prisma, PrismaClient } from "@prisma/client"
 import prisma from "../lib/prisma"
+
+type DbClient = Prisma.TransactionClient | PrismaClient
 
 interface LogActivityParams {
   type: string
@@ -9,8 +12,8 @@ interface LogActivityParams {
   metadata?: Record<string, unknown>
 }
 
-export async function logActivity(params: LogActivityParams) {
-  return prisma.activityLog.create({
+export async function logActivity(params: LogActivityParams, client: DbClient = prisma) {
+  return client.activityLog.create({
     data: {
       type: params.type,
       description: params.description,

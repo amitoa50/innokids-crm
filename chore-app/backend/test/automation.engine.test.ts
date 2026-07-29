@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach } from "vitest"
+import { describe, it, expect, beforeEach, vi } from "vitest"
 import { enqueue, cancelForEntity, dispatchDue } from "../src/services/automation.service"
+import { logActivity } from "../src/services/activityLog.service"
 import {
   prisma,
   resetDb,
@@ -9,6 +10,13 @@ import {
   createScheduledRow,
   logWhatsAppMessage
 } from "./helpers/db"
+
+// Pass-through mock so a single test can make logActivity throw once
+// (pins the post-send failure path) while every other test keeps the real behavior.
+vi.mock("../src/services/activityLog.service", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/services/activityLog.service")>()
+  return { ...actual, logActivity: vi.fn(actual.logActivity) }
+})
 
 beforeEach(async () => {
   await resetDb()
@@ -397,5 +405,109 @@ describe("dispatch safety rails", () => {
     expect(after.status).toBe("CANCELLED")
     expect(after.failureReason).toBe("CONSENT_REVOKED")
     expect(await outboundMessages(lead.id)).toHaveLength(0)
+  })
+})
+
+describe("dispatch resilience", () => {
+  it("a row that throws is FAILED and does not halt the rest of the batch", async () => {
+    const lead = await createLead({ status: "NO_RESPONSE", marketingConsent: true })
+    const trial = await createTrial(lead.id)
+    const bad = await createScheduledRow({
+      leadId: lead.id,
+      triggerEvent: "NO_RESPONSE_NUDGE",
+      entityType: "LEAD",
+      entityId: lead.id,
+      templateName: "no_response_nudge"
+    })
+    // corrupt the variables JSON so JSON.parse throws mid-loop
+    await prisma.scheduledMessage.update({ where: { id: bad.id }, data: { variables: "{not-json" } })
+    const good = await createScheduledRow({
+      leadId: lead.id,
+      triggerEvent: "TRIAL_CONFIRMATION",
+      entityType: "TRIAL_LESSON",
+      entityId: trial.id,
+      templateName: "trial_confirmation",
+      variables: ["הורה בדיקה", "1.1.2027", "17:00"]
+    })
+
+    await dispatchDue()
+
+    const badAfter = await prisma.scheduledMessage.findUnique({ where: { id: bad.id } })
+    const goodAfter = await prisma.scheduledMessage.findUnique({ where: { id: good.id } })
+    expect(badAfter!.status).toBe("FAILED")
+    expect(badAfter!.failureReason).toContain("DISPATCH_ERROR")
+    expect(goodAfter!.status).toBe("SENT")
+  })
+
+  it("reclaims a stale SENDING row and sends it", async () => {
+    const lead = await createLead({ status: "NO_RESPONSE", marketingConsent: true })
+    const stale = await createScheduledRow({
+      leadId: lead.id,
+      triggerEvent: "NO_RESPONSE_NUDGE",
+      entityType: "LEAD",
+      entityId: lead.id,
+      templateName: "no_response_nudge",
+      status: "SENDING",
+      updatedAt: new Date(Date.now() - 30 * 60 * 1000)
+    })
+
+    await dispatchDue()
+
+    const after = await prisma.scheduledMessage.findUnique({ where: { id: stale.id } })
+    expect(after!.status).toBe("SENT")
+  })
+
+  it("leaves a fresh SENDING claim alone", async () => {
+    const lead = await createLead({ status: "NO_RESPONSE", marketingConsent: true })
+    const fresh = await createScheduledRow({
+      leadId: lead.id,
+      triggerEvent: "NO_RESPONSE_NUDGE",
+      entityType: "LEAD",
+      entityId: lead.id,
+      templateName: "no_response_nudge",
+      status: "SENDING"
+    })
+
+    await dispatchDue()
+
+    const after = await prisma.scheduledMessage.findUnique({ where: { id: fresh.id } })
+    expect(after!.status).toBe("SENDING")
+  })
+
+  it("keeps a SENT row SENT when a post-send step throws", async () => {
+    const admin = await createAdmin()
+    const lead = await createLead({ status: "NO_RESPONSE", marketingConsent: true })
+    const row = await createScheduledRow({
+      leadId: lead.id,
+      triggerEvent: "NO_RESPONSE_NUDGE",
+      entityType: "LEAD",
+      entityId: lead.id,
+      templateName: "no_response_nudge"
+    })
+    // The row is updated to SENT before the WHATSAPP_AUTO_SENT activity log runs —
+    // a throw there must not downgrade the row back to FAILED (the message was
+    // actually delivered). Target only that call: logActivity also runs earlier
+    // inside sendWhatsApp via logMessage, which must stay working.
+    const actual = await vi.importActual<typeof import("../src/services/activityLog.service")>(
+      "../src/services/activityLog.service"
+    )
+    vi.mocked(logActivity).mockImplementation(async (params) => {
+      if (params.type === "WHATSAPP_AUTO_SENT") throw new Error("activity log down")
+      return actual.logActivity(params)
+    })
+
+    await dispatchDue()
+
+    // restore the pass-through for the rest of the suite (mockReset re-installs
+    // the original implementation given to vi.fn)
+    vi.mocked(logActivity).mockReset()
+
+    const after = await prisma.scheduledMessage.findUniqueOrThrow({ where: { id: row.id } })
+    expect(after.status).toBe("SENT")
+    expect(after.failureReason).toBeNull()
+    expect(await outboundMessages(lead.id)).toHaveLength(1)
+    // no false "system failure" alert either — the guarded downgrade updated 0 rows
+    const notifications = await prisma.notification.findMany({ where: { userId: admin.id } })
+    expect(notifications).toHaveLength(0)
   })
 })

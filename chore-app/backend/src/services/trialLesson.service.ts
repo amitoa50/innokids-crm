@@ -45,11 +45,22 @@ export async function listTrialLessons(filters: {
 }
 
 export async function createTrialLesson(data: CreateTrialData, performedById: number) {
+  const scheduledAt = new Date(data.scheduledAt)
+  if (isNaN(scheduledAt.getTime()) || scheduledAt <= new Date()) {
+    return { error: "TRIAL_IN_PAST" as const }
+  }
+
+  const lead = await prisma.lead.findUnique({ where: { id: data.leadId } })
+  if (!lead) return { error: "LEAD_NOT_FOUND" as const }
+  if (lead.status === "CLOSED" || lead.status === "CONVERTED") {
+    return { error: "LEAD_NOT_ACTIVE" as const }
+  }
+
   const trial = await prisma.trialLesson.create({
     data: {
       leadId: data.leadId,
       groupId: data.groupId,
-      scheduledAt: new Date(data.scheduledAt),
+      scheduledAt,
       teacherId: data.teacherId,
       notes: data.notes,
       meetingUrl: data.meetingUrl
@@ -118,6 +129,16 @@ export async function createTrialLesson(data: CreateTrialData, performedById: nu
 }
 
 export async function updateTrialLesson(id: number, data: Partial<CreateTrialData>) {
+  if (data.scheduledAt) {
+    const scheduledAt = new Date(data.scheduledAt)
+    if (isNaN(scheduledAt.getTime()) || scheduledAt <= new Date()) {
+      return { error: "TRIAL_IN_PAST" as const }
+    }
+  }
+
+  const existing = await prisma.trialLesson.findUnique({ where: { id } })
+  if (!existing) return null
+
   const trial = await prisma.trialLesson.update({
     where: { id },
     data: {
@@ -185,6 +206,24 @@ export async function updateTrialStatus(
   outcome: string | undefined,
   performedById: number
 ) {
+  const existing = await prisma.trialLesson.findUnique({
+    where: { id },
+    include: { lead: { select: { id: true, fullName: true, childName: true, assignedToId: true } } }
+  })
+  if (!existing) return null
+  // Same status again = no side effects may repeat. An outcome correction
+  // (e.g. GOOD -> BAD) is still persisted as a bare field update.
+  if (existing.status === status) {
+    if (outcome !== undefined && outcome !== existing.outcome) {
+      return prisma.trialLesson.update({
+        where: { id },
+        data: { outcome },
+        include: { lead: { select: { id: true, fullName: true, childName: true, assignedToId: true } } }
+      })
+    }
+    return existing
+  }
+
   const trial = await prisma.trialLesson.update({
     where: { id },
     data: { status, outcome },

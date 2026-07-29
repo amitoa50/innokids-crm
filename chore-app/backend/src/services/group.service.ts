@@ -1,4 +1,8 @@
+import { Prisma, PrismaClient } from "@prisma/client"
 import prisma from "../lib/prisma"
+
+// Accepted by helpers that must participate in a caller's transaction.
+type DbClient = Prisma.TransactionClient | PrismaClient
 
 interface CreateGroupData {
   name: string
@@ -70,8 +74,8 @@ export async function getGroup(id: number) {
   })
 }
 
-export async function createGroup(data: CreateGroupData) {
-  return prisma.group.create({
+export async function createGroup(data: CreateGroupData, client: DbClient = prisma) {
+  return client.group.create({
     data,
     include: {
       teacher: { select: { name: true } },
@@ -105,16 +109,16 @@ export async function checkGroupCapacity(groupId: number) {
 }
 
 // Flips group status to FULL when it reaches capacity after an assignment.
-export async function refreshGroupFullStatus(groupId: number) {
-  const group = await prisma.group.findUnique({
+export async function refreshGroupFullStatus(groupId: number, client: DbClient = prisma) {
+  const group = await client.group.findUnique({
     where: { id: groupId },
     include: { _count: { select: { students: true } } }
   })
   if (!group || group.maxCapacity == null) return
   if (group._count.students >= group.maxCapacity && group.status === "ACTIVE") {
-    await prisma.group.update({ where: { id: groupId }, data: { status: "FULL" } })
+    await client.group.update({ where: { id: groupId }, data: { status: "FULL" } })
   } else if (group._count.students < group.maxCapacity && group.status === "FULL") {
-    await prisma.group.update({ where: { id: groupId }, data: { status: "ACTIVE" } })
+    await client.group.update({ where: { id: groupId }, data: { status: "ACTIVE" } })
   }
 }
 
@@ -127,24 +131,30 @@ export async function addStudentToGroup(groupId: number, studentId: number, allo
     if (!allowOverfill) return { error: capacity.reason }
   }
 
+  const previous = await prisma.student.findUnique({ where: { id: studentId } })
   const student = await prisma.student.update({
     where: { id: studentId },
     data: { groupId }
   })
 
   await refreshGroupFullStatus(groupId)
+  // A transfer frees a seat in the source group — release it from FULL if needed.
+  if (previous?.groupId && previous.groupId !== groupId) {
+    await refreshGroupFullStatus(previous.groupId)
+  }
   return { student }
 }
 
-export async function removeStudentFromGroup(studentId: number) {
+export async function removeStudentFromGroup(groupId: number, studentId: number) {
   const current = await prisma.student.findUnique({ where: { id: studentId } })
+  if (!current) return { error: "STUDENT_NOT_FOUND" as const }
+  if (current.groupId !== groupId) return { error: "NOT_IN_GROUP" as const }
+
   const student = await prisma.student.update({
     where: { id: studentId },
     data: { groupId: null }
   })
 
-  if (current?.groupId) {
-    await refreshGroupFullStatus(current.groupId)
-  }
-  return student
+  await refreshGroupFullStatus(groupId)
+  return { student }
 }

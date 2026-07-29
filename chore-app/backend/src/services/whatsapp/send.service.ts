@@ -30,9 +30,10 @@ export async function sendWhatsApp(leadId: number, params: SendParams, sentById?
 
   if (params.templateName) {
     const tpl = await prisma.messageTemplate.findUnique({ where: { name: params.templateName } })
-    if (tpl && tpl.status !== "APPROVED") return { error: "TEMPLATE_NOT_APPROVED" as const }
-    const language = params.language || tpl?.language || "he"
-    bodyText = tpl ? interpolate(tpl.body, params.variables) : `[template:${params.templateName}]`
+    if (!tpl) return { error: "TEMPLATE_NOT_FOUND" as const }
+    if (tpl.status !== "APPROVED") return { error: "TEMPLATE_NOT_APPROVED" as const }
+    const language = params.language || tpl.language
+    bodyText = interpolate(tpl.body, params.variables)
     const result = await provider.sendTemplate(toPhone, params.templateName, language, params.variables || [])
     externalId = result.externalId
   } else {

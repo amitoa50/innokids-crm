@@ -7,6 +7,10 @@ import { notifyAdmins } from "./notification.service"
 
 const DISPATCH_BATCH = 50
 
+// A SENDING claim older than this is considered orphaned (process died mid-send)
+// and is returned to PENDING on the next tick.
+const STALE_CLAIM_MINUTES = 15
+
 // Enqueue an automated message into the outbox. Idempotent via dedupeKey:
 // a fresh trigger creates a PENDING row; a reschedule updates the pending row's
 // dueAt/variables in place; terminal rows (SENT/CANCELLED/FAILED) are never resurrected.
@@ -66,6 +70,13 @@ async function finalize(id: number, status: string, reason?: string) {
 // the 5-minute cron tick. Safe against overlapping ticks via the SENDING claim.
 export async function dispatchDue() {
   const now = new Date()
+
+  const staleBefore = new Date(Date.now() - STALE_CLAIM_MINUTES * 60 * 1000)
+  await prisma.scheduledMessage.updateMany({
+    where: { status: "SENDING", updatedAt: { lt: staleBefore } },
+    data: { status: "PENDING" }
+  })
+
   const due = await prisma.scheduledMessage.findMany({
     where: { status: "PENDING", dueAt: { lte: now } },
     orderBy: { dueAt: "asc" },
@@ -80,59 +91,77 @@ export async function dispatchDue() {
     })
     if (claim.count !== 1) continue
 
-    const triggerEvent = (row.dedupeKey || "").split(":")[0]
-    const def = registry[triggerEvent]
-    if (!def) {
-      await finalize(row.id, "FAILED", "UNKNOWN_TRIGGER")
-      continue
-    }
+    try {
+      const triggerEvent = (row.dedupeKey || "").split(":")[0]
+      const def = registry[triggerEvent]
+      if (!def) {
+        await finalize(row.id, "FAILED", "UNKNOWN_TRIGGER")
+        continue
+      }
 
-    const lead = await prisma.lead.findUnique({ where: { id: row.leadId } })
-    if (!lead) {
-      await finalize(row.id, "CANCELLED", "LEAD_NOT_FOUND")
-      continue
-    }
-    if (!lead.whatsappConsent) {
-      await finalize(row.id, "CANCELLED", "CONSENT_REVOKED")
-      continue
-    }
+      const lead = await prisma.lead.findUnique({ where: { id: row.leadId } })
+      if (!lead) {
+        await finalize(row.id, "CANCELLED", "LEAD_NOT_FOUND")
+        continue
+      }
+      if (!lead.whatsappConsent) {
+        await finalize(row.id, "CANCELLED", "CONSENT_REVOKED")
+        continue
+      }
 
-    const check = await def.guard(row, lead)
-    if (!check.ok) {
-      await finalize(row.id, "CANCELLED", check.reason)
-      continue
-    }
+      const check = await def.guard(row, lead)
+      if (!check.ok) {
+        await finalize(row.id, "CANCELLED", check.reason)
+        continue
+      }
 
-    const tpl = await prisma.messageTemplate.findUnique({ where: { name: row.templateName } })
-    if (!tpl || tpl.status !== "APPROVED") {
-      await finalize(row.id, "FAILED", "NO_APPROVED_TEMPLATE")
-      await notifyAdmins(`הודעה אוטומטית נכשלה — אין תבנית מאושרת (${row.templateName}) עבור ${lead.fullName}`)
-      continue
-    }
+      const tpl = await prisma.messageTemplate.findUnique({ where: { name: row.templateName } })
+      if (!tpl || tpl.status !== "APPROVED") {
+        await finalize(row.id, "FAILED", "NO_APPROVED_TEMPLATE")
+        await notifyAdmins(`הודעה אוטומטית נכשלה — אין תבנית מאושרת (${row.templateName}) עבור ${lead.fullName}`)
+        continue
+      }
 
-    // Marketing templates need the explicit marketing opt-in on top of WhatsApp consent
-    if (tpl.category === "MARKETING" && !lead.marketingConsent) {
-      await finalize(row.id, "CANCELLED", "NO_MARKETING_CONSENT")
-      continue
-    }
+      // Marketing templates need the explicit marketing opt-in on top of WhatsApp consent
+      if (tpl.category === "MARKETING" && !lead.marketingConsent) {
+        await finalize(row.id, "CANCELLED", "NO_MARKETING_CONSENT")
+        continue
+      }
 
-    const variables = row.variables ? (JSON.parse(row.variables) as string[]) : []
-    const result = await sendWhatsApp(row.leadId, { templateName: row.templateName, variables })
-    if ("error" in result) {
-      await finalize(row.id, "FAILED", result.error)
-      await notifyAdmins(`הודעה אוטומטית נכשלה (${result.error}) עבור ${lead.fullName}`)
-      continue
-    }
+      const variables = row.variables ? (JSON.parse(row.variables) as string[]) : []
+      const result = await sendWhatsApp(row.leadId, { templateName: row.templateName, variables })
+      if ("error" in result) {
+        await finalize(row.id, "FAILED", result.error)
+        await notifyAdmins(`הודעה אוטומטית נכשלה (${result.error}) עבור ${lead.fullName}`)
+        continue
+      }
 
-    await prisma.scheduledMessage.update({
-      where: { id: row.id },
-      data: { status: "SENT", messageId: result.message.id, failureReason: null }
-    })
-    await logActivity({
-      type: "WHATSAPP_AUTO_SENT",
-      description: `הודעת וואטסאפ אוטומטית נשלחה (${triggerEvent})`,
-      leadId: row.leadId,
-      metadata: { triggerEvent, templateName: row.templateName }
-    })
+      await prisma.scheduledMessage.update({
+        where: { id: row.id },
+        data: { status: "SENT", messageId: result.message.id, failureReason: null }
+      })
+      await logActivity({
+        type: "WHATSAPP_AUTO_SENT",
+        description: `הודעת וואטסאפ אוטומטית נשלחה (${triggerEvent})`,
+        leadId: row.leadId,
+        metadata: { triggerEvent, templateName: row.templateName }
+      })
+    } catch (err) {
+      const reason = `DISPATCH_ERROR: ${err instanceof Error ? err.message : String(err)}`
+      console.error(`[automation] row ${row.id} failed:`, err)
+      try {
+        // Guarded: only a row still mid-claim may be failed — a row already
+        // persisted as SENT stays SENT (the message was delivered)
+        const downgraded = await prisma.scheduledMessage.updateMany({
+          where: { id: row.id, status: "SENDING" },
+          data: { status: "FAILED", failureReason: reason }
+        })
+        if (downgraded.count === 1) {
+          await notifyAdmins(`הודעה אוטומטית נכשלה (שגיאת מערכת) — שורה ${row.id}`)
+        }
+      } catch (finalizeErr) {
+        console.error(`[automation] could not finalize row ${row.id}:`, finalizeErr)
+      }
+    }
   }
 }
